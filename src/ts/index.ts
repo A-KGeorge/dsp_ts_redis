@@ -6,4 +6,7 @@ export type {
   RedisConfig,
   RmsParams,
   RectifyParams,
+  PipelineCallbacks,
+  LogLevel,
+  LogContext,
 } from "./types.js";

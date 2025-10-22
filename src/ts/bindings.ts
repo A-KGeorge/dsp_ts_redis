@@ -7,6 +7,7 @@ import type {
   MovingAverageParams,
   RmsParams,
   RectifyParams,
+  PipelineCallbacks,
 } from "./types.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -50,6 +51,9 @@ if (!DspAddon) {
  * Provides a fluent API for building and processing DSP pipelines
  */
 class DspProcessor {
+  private stages: string[] = [];
+  private callbacks?: PipelineCallbacks;
+
   constructor(private nativeInstance: any) {}
 
   /**
@@ -64,6 +68,7 @@ class DspProcessor {
       );
     }
     this.nativeInstance.addStage("movingAverage", params);
+    this.stages.push("movingAverage");
     return this;
   }
 
@@ -75,6 +80,7 @@ class DspProcessor {
 
   Rms(params: RmsParams): this {
     this.nativeInstance.addStage("rms", params);
+    this.stages.push("rms");
     return this;
   }
 
@@ -85,6 +91,7 @@ class DspProcessor {
    */
   Rectify(params?: RectifyParams): this {
     this.nativeInstance.addStage("rectify", params || { mode: "full" });
+    this.stages.push(`rectify:${params?.mode || "full"}`);
     return this;
   }
 
@@ -97,6 +104,36 @@ class DspProcessor {
   //   this.nativeInstance.addStage("notchFilter", { freqHz });
   //   return this;
   // }
+
+  /**
+   * Configure pipeline callbacks for monitoring and observability
+   * @param callbacks - Object containing callback functions
+   * @returns this instance for method chaining
+   *
+   * @example
+   * pipeline
+   *   .pipeline({
+   *     onSample: (value, i, stage) => {
+   *       if (value > THRESHOLD) triggerAlert(i, stage);
+   *     },
+   *     onStageComplete: (stage, durationMs) => {
+   *       metrics.record(`dsp.${stage}.duration`, durationMs);
+   *     },
+   *     onError: (stage, err) => {
+   *       logger.error(`Stage ${stage} failed`, err);
+   *     },
+   *     onLog: (level, msg, ctx) => {
+   *       if (level === "debug") return;
+   *       console.log(`[${level}] ${msg}`, ctx);
+   *     },
+   *   })
+   *   .MovingAverage({ windowSize: 10 })
+   *   .Rectify();
+   */
+  pipeline(callbacks: PipelineCallbacks): this {
+    this.callbacks = callbacks;
+    return this;
+  }
 
   /**
    * Process audio data through the DSP pipeline
@@ -115,11 +152,68 @@ class DspProcessor {
     options: ProcessOptions
   ): Promise<Float32Array> {
     const opts = { channels: 1, ...options };
+    const startTime = performance.now();
 
-    // The native process method now uses Napi::AsyncWorker
-    // and returns a Promise, so await it here
-    // Note: The input buffer is modified in-place for zero-copy performance
-    return await this.nativeInstance.process(input, opts);
+    try {
+      // Log processing start
+      if (this.callbacks?.onLog) {
+        this.callbacks.onLog("debug", "Starting pipeline processing", {
+          sampleCount: input.length,
+          channels: opts.channels,
+          stages: this.stages.length,
+        });
+      }
+
+      // The native process method now uses Napi::AsyncWorker
+      // and returns a Promise, so await it here
+      // Note: The input buffer is modified in-place for zero-copy performance
+      const result = await this.nativeInstance.process(input, opts);
+
+      // Execute onSample callbacks if provided
+      // WARNING: This can be expensive for large buffers
+      if (this.callbacks?.onSample) {
+        const stageName = this.stages.join(" → ") || "pipeline";
+        for (let i = 0; i < result.length; i++) {
+          this.callbacks.onSample(result[i], i, stageName);
+        }
+      }
+
+      // Execute onStageComplete callback
+      if (this.callbacks?.onStageComplete) {
+        const duration = performance.now() - startTime;
+        const pipelineName = this.stages.join(" → ") || "pipeline";
+        this.callbacks.onStageComplete(pipelineName, duration);
+      }
+
+      // Log completion
+      if (this.callbacks?.onLog) {
+        const duration = performance.now() - startTime;
+        this.callbacks.onLog("info", "Pipeline processing completed", {
+          durationMs: duration,
+          sampleCount: result.length,
+        });
+      }
+
+      return result;
+    } catch (error) {
+      const err = error as Error;
+
+      // Execute onError callback
+      if (this.callbacks?.onError) {
+        const pipelineName = this.stages.join(" → ") || "pipeline";
+        this.callbacks.onError(pipelineName, err);
+      }
+
+      // Log error
+      if (this.callbacks?.onLog) {
+        this.callbacks.onLog("error", "Pipeline processing failed", {
+          error: err.message,
+          stack: err.stack,
+        });
+      }
+
+      throw error;
+    }
   }
 
   /**

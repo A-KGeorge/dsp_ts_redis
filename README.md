@@ -302,6 +302,58 @@ See the [project roadmap](./ROADMAP.md) for more details.
 
 ---
 
+### Pipeline Callbacks (Monitoring & Observability)
+
+Configure callbacks for monitoring, alerting, and observability:
+
+```typescript
+import { createDspPipeline } from "dsp-ts-redis";
+import type { PipelineCallbacks } from "dsp-ts-redis";
+
+const callbacks: PipelineCallbacks = {
+  // Monitor individual samples (use sparingly - can impact performance)
+  onSample: (value, index, stage) => {
+    if (value > THRESHOLD) {
+      triggerAlert(index, stage);
+    }
+  },
+
+  // Track performance metrics
+  onStageComplete: (stage, durationMs) => {
+    metrics.record(`dsp.${stage}.duration`, durationMs);
+  },
+
+  // Handle errors gracefully
+  onError: (stage, error) => {
+    logger.error(`Stage ${stage} failed`, error);
+  },
+
+  // Structured logging
+  onLog: (level, msg, context) => {
+    if (level === "debug") return; // Filter debug logs
+    console.log(`[${level}] ${msg}`, context);
+  },
+};
+
+// Configure callbacks before adding filters
+const pipeline = createDspPipeline()
+  .pipeline(callbacks)
+  .MovingAverage({ windowSize: 10 })
+  .Rectify()
+  .Rms({ windowSize: 5 });
+```
+
+**Performance Notes:**
+
+- **`onSample`**: Called for every sample. Use sparingly for large buffers (e.g., only for peak detection)
+- **`onStageComplete`**: Minimal overhead, ideal for performance monitoring
+- **`onError`**: Only called on errors, no performance impact
+- **`onLog`**: Filter by log level to control verbosity
+
+See `src/ts/examples/callbacks/` for complete examples.
+
+---
+
 ### Core Methods
 
 #### `process(input, options)`
