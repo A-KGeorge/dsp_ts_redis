@@ -4,6 +4,7 @@
 #include "../utils/CircularBufferArray.h" // Your existing files
 #include "../core/MovingAverageFilter.h"  // Your existing files
 #include <vector>
+#include <stdexcept>
 
 namespace dsp
 {
