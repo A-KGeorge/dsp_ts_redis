@@ -14,7 +14,7 @@
         "src/native/emg"
       ],
       "defines": [
-        "NAPI_VERSION=10"
+        "NAPI_VERSION=8"
       ],
       "cflags!": [ "-fno-exceptions" ],
       "cflags_cc!": [ "-fno-exceptions" ],

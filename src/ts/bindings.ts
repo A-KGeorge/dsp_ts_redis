@@ -1,4 +1,6 @@
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import type {
   ProcessOptions,
   RedisConfig,
@@ -6,8 +8,42 @@ import type {
   RmsParams,
   RectifyParams,
 } from "./types.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 const require = createRequire(import.meta.url);
-const DspAddon = require("../build/dsp-js-native.node");
+
+// Try multiple paths to find the native module
+let DspAddon: any;
+const possiblePaths = [
+  join(__dirname, "../build/dsp-js-native.node"),
+  join(__dirname, "../../build/Release/dsp-js-native.node"),
+  join(process.cwd(), "build/Release/dsp-js-native.node"),
+  join(process.cwd(), "src/build/dsp-js-native.node"),
+];
+
+const errors: Array<{ path: string; error: string }> = [];
+
+for (const path of possiblePaths) {
+  try {
+    DspAddon = require(path);
+    break;
+  } catch (err: any) {
+    errors.push({ path, error: err.message });
+    // Try next path
+  }
+}
+
+if (!DspAddon) {
+  console.error("❌ Failed to load native module. Tried paths:");
+  errors.forEach(({ path, error }) => {
+    console.error(`  - ${path}`);
+    console.error(`    Error: ${error}`);
+  });
+  throw new Error(
+    `Could not load native module. Tried ${possiblePaths.length} paths.`
+  );
+}
 
 /**
  * DSP Processor class that wraps the native C++ DspPipeline
