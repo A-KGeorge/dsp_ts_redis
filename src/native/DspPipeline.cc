@@ -200,24 +200,18 @@ namespace dsp
         // Save timestamp
         stateObj.Set("timestamp", static_cast<double>(std::time(nullptr)));
 
-        // Save pipeline configuration
+        // Save pipeline configuration and full state
         Napi::Array stagesArray = Napi::Array::New(env, m_stages.size());
 
-        for (size_t i = 0; i < m_stages.size(); i++)
+        for (size_t i = 0; i < m_stages.size(); ++i)
         {
             Napi::Object stageConfig = Napi::Object::New(env);
 
-            // TODO: Each stage type should implement a serialize() method
-            // For now, we'll save basic stage info
-            // In a full implementation, each stage would serialize its internal state
-            // (e.g., MovingAverageFilter would save its circular buffer contents)
-
-            // This is a simplified version - you'd extend IDspStage with serialize/deserialize
             stageConfig.Set("index", static_cast<uint32_t>(i));
-            stageConfig.Set("type", "movingAverage"); // TODO: Get actual type from stage
+            stageConfig.Set("type", "movingAverage"); // TODO: Add type identification system
 
-            // Example of what full implementation would look like:
-            // stageConfig.Set("state", m_stages[i]->serializeState(env));
+            // Serialize the stage's internal state
+            stageConfig.Set("state", m_stages[i]->serializeState(env));
 
             stagesArray.Set(static_cast<uint32_t>(i), stageConfig);
         }
@@ -270,23 +264,30 @@ namespace dsp
             Napi::Array stagesArray = stateObj.Get("stages").As<Napi::Array>();
             uint32_t stageCount = stagesArray.Length();
 
-            // Log restoration (optional)
+            // Validate stage count matches
+            if (stageCount != m_stages.size())
+            {
+                Napi::Error::New(env, "Stage count mismatch: expected " +
+                                          std::to_string(m_stages.size()) + " but got " + std::to_string(stageCount))
+                    .ThrowAsJavaScriptException();
+                return Napi::Boolean::New(env, false);
+            }
+
+            // Log restoration
             std::cout << "Restoring pipeline state with " << stageCount << " stages" << std::endl;
 
-            // TODO: Full implementation would:
-            // 1. Clear existing stages or validate they match
-            // 2. For each stage, call its deserialize() method to restore internal state
-            // 3. Restore circular buffers, running sums, etc.
+            // Restore each stage's state
+            for (uint32_t i = 0; i < stageCount; ++i)
+            {
+                Napi::Object stageConfig = stagesArray.Get(i).As<Napi::Object>();
+                if (stageConfig.Has("state"))
+                {
+                    Napi::Object stageState = stageConfig.Get("state").As<Napi::Object>();
+                    m_stages[i]->deserializeState(stageState);
+                }
+            }
 
-            // Example of what full implementation would look like:
-            // for (uint32_t i = 0; i < stageCount; i++)
-            // {
-            //     Napi::Object stageConfig = stagesArray.Get(i).As<Napi::Object>();
-            //     if (i < m_stages.size())
-            //     {
-            //         m_stages[i]->deserializeState(stageConfig.Get("state"));
-            //     }
-            // }
+            std::cout << "State restoration complete!" << std::endl;
 
             return Napi::Boolean::New(env, true);
         }
@@ -306,18 +307,13 @@ namespace dsp
     {
         Napi::Env env = info.Env();
 
-        // TODO: Each stage should implement a reset() method
-        // For now, we'll just clear the stages vector
-        // In a full implementation, you'd call reset() on each stage to clear
-        // circular buffers, running sums, etc. without removing the stage
+        // Reset all stages
+        for (auto &stage : m_stages)
+        {
+            stage->reset();
+        }
 
-        // Example of what full implementation would look like:
-        // for (auto& stage : m_stages)
-        // {
-        //     stage->reset();
-        // }
-
-        std::cout << "Pipeline state cleared (" << m_stages.size() << " stages remain)" << std::endl;
+        std::cout << "Pipeline state cleared (" << m_stages.size() << " stages reset)" << std::endl;
 
         return env.Undefined();
     }

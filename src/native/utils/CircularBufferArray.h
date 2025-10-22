@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 // CircularBufferArray.h
 template <typename T>
 
@@ -27,6 +29,10 @@ public:
     bool isEmpty() const noexcept;
     bool isFull() const noexcept;
     T peek() const;
+
+    // state management
+    std::vector<T> toVector() const;
+    void fromVector(const std::vector<T> &data);
 
     // destructor
     ~CircularBufferArray();

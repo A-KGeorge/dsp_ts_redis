@@ -78,6 +78,27 @@ bool MovingAverageFilter<T>::isFull() const noexcept
     return buffer.isFull();
 }
 
+// -----------------------------------------------------------------------------
+// Method: getState
+// Exports the filter's internal state for serialization
+// -----------------------------------------------------------------------------
+template <typename T>
+std::pair<std::vector<T>, T> MovingAverageFilter<T>::getState() const
+{
+    return {buffer.toVector(), running_sum};
+}
+
+// -----------------------------------------------------------------------------
+// Method: setState
+// Restores the filter's internal state from serialized data
+// -----------------------------------------------------------------------------
+template <typename T>
+void MovingAverageFilter<T>::setState(const std::vector<T> &bufferData, T sum)
+{
+    buffer.fromVector(bufferData);
+    running_sum = sum;
+}
+
 // Explicit template instantiation for common types
 template class MovingAverageFilter<int>;
 template class MovingAverageFilter<float>;

@@ -1,5 +1,7 @@
 #pragma once
 #include "../utils/CircularBufferArray.h"
+#include <utility>
+#include <vector>
 
 namespace dsp::core
 {
@@ -56,6 +58,19 @@ namespace dsp::core
          * @return true if the buffer is full, false otherwise.
          */
         bool isFull() const noexcept;
+
+        /**
+         * @brief Exports the filter's internal state.
+         * @return A pair containing the buffer contents and running sum.
+         */
+        std::pair<std::vector<T>, T> getState() const;
+
+        /**
+         * @brief Restores the filter's internal state.
+         * @param bufferData The buffer contents to restore.
+         * @param sum The running sum to restore.
+         */
+        void setState(const std::vector<T> &bufferData, T sum);
 
     private:
         CircularBufferArray<T> buffer;

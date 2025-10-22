@@ -13,35 +13,22 @@
 import { createClient } from "redis";
 import { createDspPipeline } from "../bindings";
 
-// Simulated Redis client (replace with real redis when ready)
-// npm install redis @types/redis
-// import { createClient } from 'redis';
-
-class MockRedis {
-  private store = new Map<string, string>();
-
-  async get(key: string): Promise<string | null> {
-    return this.store.get(key) || null;
-  }
-
-  async set(key: string, value: string): Promise<void> {
-    this.store.set(key, value);
-  }
-
-  async del(key: string): Promise<void> {
-    this.store.delete(key);
-  }
-}
-
-async function redisExample() {
+async function redisExample(startFresh = false) {
   console.log("=== DSP Pipeline with Redis State Persistence ===\n");
 
-  // 1. Create mock Redis client (replace with real redis client)
-  //   const redis = new MockRedis();
+  // 1. Create Redis client
   const redis = await createClient({ url: "redis://localhost:6379" }).connect();
 
   // 2. Create DSP pipeline with Redis configuration
   const stateKey = "dsp:pipeline:channel1";
+
+  // Optional: Clear previous state to start fresh
+  if (startFresh) {
+    console.log("Clearing previous state to start fresh...");
+    await redis.del(stateKey);
+    console.log("State cleared\n");
+  }
+
   const pipeline = createDspPipeline({
     redisHost: "localhost",
     redisPort: 6379,
@@ -57,8 +44,8 @@ async function redisExample() {
   const previousState = await redis.get(stateKey);
   if (previousState) {
     console.log("Found previous state in Redis, restoring...");
-    // When implemented: await pipeline.loadState(previousState);
-    console.log("(State restoration not yet implemented in C++)");
+    await pipeline.loadState(previousState);
+    console.log("State restored successfully!");
   } else {
     console.log("No previous state found in Redis");
   }
@@ -76,11 +63,7 @@ async function redisExample() {
 
   // 6. Save state to Redis
   console.log("\n--- Saving state to Redis ---");
-  // When implemented: const state = await pipeline.saveState();
-  const state = JSON.stringify({
-    timestamp: Date.now(),
-    stages: [{ type: "movingAverage", windowSize: 3 }],
-  });
+  const state = await pipeline.saveState();
   await redis.set(stateKey, state);
   console.log("State saved:", state);
 
@@ -98,10 +81,10 @@ async function redisExample() {
 
   const restoredState = await redis.get(stateKey);
   if (restoredState) {
-    console.log("Restored state from Redis:", restoredState);
-    // When implemented: await pipeline2.loadState(restoredState);
+    console.log("Restored state from Redis");
+    await pipeline2.loadState(restoredState);
     console.log(
-      "(Note: Full state restoration including buffer contents requires C++ implementation)"
+      "State restoration complete - continuing from where we left off!"
     );
   }
 
@@ -117,23 +100,34 @@ async function redisExample() {
   console.log("Output batch 2:", Array.from(output2));
 
   console.log(
-    "\nNote: With full state restoration, batch2 would continue the moving average from where batch1 left off"
+    "\nNote: With state restoration, batch2 continues the moving average from where batch1 left off!"
+  );
+  console.log(
+    "Expected output without state: [6, 6.5, 7] - but we got continuous averaging!"
   );
 
-  // 10. Clear state
-  console.log("\n--- Clearing state ---");
-  await redis.del(stateKey);
-  // When implemented: await pipeline2.clearState();
-  console.log("State cleared from Redis");
-}
+  // 10. Optional: Clear state (commented out to persist between runs)
+  // console.log("\n--- Clearing state ---");
+  // await redis.del(stateKey);
+  // pipeline2.clearState();
+  // console.log("State cleared from Redis");
 
-// Real-world use case example
-async function streamingExample() {
+  // Disconnect from Redis
+  await redis.disconnect();
+} // Real-world use case example
+async function streamingExample(startFresh = false) {
   console.log("\n\n=== Streaming Audio Processing Example ===\n");
 
-  const redis = new MockRedis();
+  const redis = await createClient({ url: "redis://localhost:6379" }).connect();
   const channelId = "audio-stream-ch1";
   const stateKey = `dsp:stream:${channelId}`;
+
+  // Optional: Clear previous state to start fresh
+  if (startFresh) {
+    console.log("Clearing previous streaming state to start fresh...");
+    await redis.del(stateKey);
+    console.log("Streaming state cleared\n");
+  }
 
   // Create pipeline
   const pipeline = createDspPipeline({
@@ -148,7 +142,7 @@ async function streamingExample() {
   const savedState = await redis.get(stateKey);
   if (savedState) {
     console.log("Resuming from saved state...");
-    // await pipeline.loadState(savedState);
+    await pipeline.loadState(savedState);
   }
 
   // Simulate streaming audio chunks
@@ -172,16 +166,37 @@ async function streamingExample() {
     console.log(`Chunk ${i + 1} output:`, Array.from(processed));
 
     // Save state after each chunk (for crash recovery)
-    // const state = await pipeline.saveState();
-    // await redis.set(stateKey, state);
+    const state = await pipeline.saveState();
+    await redis.set(stateKey, state);
     console.log(`State saved after chunk ${i + 1}\n`);
   }
 
   console.log("Stream processing complete. State saved for next session.");
+
+  // Disconnect from Redis
+  await redis.disconnect();
 }
 
 // Run examples
 console.log("Running DSP + Redis examples...\n");
-redisExample()
-  .then(() => streamingExample())
-  .catch(console.error);
+
+// Set to true to clear previous state and start fresh
+// Set to false to demonstrate state persistence across runs
+const START_FRESH = false;
+
+redisExample(START_FRESH)
+  .then(() => streamingExample(START_FRESH))
+  .then(() => {
+    console.log("\nAll examples completed successfully!");
+    console.log(
+      "\nTip: Set START_FRESH = true to clear Redis state and start fresh"
+    );
+    console.log(
+      "Tip: Set START_FRESH = false to see state persistence across runs"
+    );
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error("\nError:", error);
+    process.exit(1);
+  });

@@ -199,6 +199,42 @@ T CircularBufferArray<T>::peek() const
 }
 
 // -----------------------------------------------------------------------------
+// Method: toVector
+// Exports the buffer contents in order (oldest to newest) as a vector
+// @ return std::vector<T> - The buffer contents in order
+// -----------------------------------------------------------------------------
+template <typename T>
+std::vector<T> CircularBufferArray<T>::toVector() const
+{
+    std::vector<T> result;
+    result.reserve(this->count);
+
+    for (size_t i = 0; i < this->count; ++i)
+    {
+        size_t index = (this->tail + i) % this->capacity;
+        result.push_back(this->buffer[index]);
+    }
+
+    return result;
+}
+
+// -----------------------------------------------------------------------------
+// Method: fromVector
+// Imports buffer contents from a vector, maintaining order
+// @ param data - The vector containing the data to import
+// -----------------------------------------------------------------------------
+template <typename T>
+void CircularBufferArray<T>::fromVector(const std::vector<T> &data)
+{
+    clear();
+
+    for (const auto &item : data)
+    {
+        pushOverwrite(item);
+    }
+}
+
+// -----------------------------------------------------------------------------
 // Destructor
 // Cleans up the circular buffer
 template <typename T>
