@@ -6,9 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "cmake-js compile",
+    "build-gyp": "node-gyp rebuild",
     "prebuild": "prebuildify --napi --strip",
-    "prebuild-all": "prebuildify --napi --strip --arch x64 --arch arm64",
-    "install": "node-gyp-build || cmake-js compile",
     "start": "tsx ./src/ts/index.ts"
   },
   "binary": {
@@ -21,13 +20,13 @@
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "cmake-js": "^7.3.1",
     "node-addon-api": "^8.5.0",
     "node-gyp-build": "^4.8.0",
     "redis": "^5.8.3"
   },
   "devDependencies": {
     "@types/node": "^24.9.1",
+    "cmake-js": "^7.3.1",
     "prebuildify": "^6.0.1",
     "tsx": "^4.20.6"
   }
