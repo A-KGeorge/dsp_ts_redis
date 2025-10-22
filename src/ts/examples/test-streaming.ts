@@ -180,7 +180,7 @@ async function runAllTests() {
     await testMultiChannelStreaming();
     console.log("\nAll streaming tests passed!");
   } catch (error) {
-    console.error("❌ Test failed:", error);
+    console.error("Test failed:", error);
     process.exit(1);
   }
 }
