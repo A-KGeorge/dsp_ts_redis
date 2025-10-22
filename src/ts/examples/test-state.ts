@@ -78,7 +78,7 @@ async function testStateManagement() {
   });
   console.log("Output (fresh start):", Array.from(output4));
 
-  console.log("\n✅ State management test complete!");
+  console.log("\nState management test complete!");
 }
 
 // Run test
