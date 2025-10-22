@@ -43,8 +43,16 @@ jobs:
       - name: Build native addon
         run: npm run build
 
+      - name: List build outputs (debug)
+        run: |
+          echo "Checking build/Release directory:"
+          ls -la build/Release/ || echo "build/Release not found"
+          echo "Checking src/build directory:"
+          ls -la src/build/ || echo "src/build not found"
+        shell: bash
+
       - name: Verify native module load
-        run: node -e "require('./build/Release/dsp-js-native.node'); console.log('✅ Native module loaded successfully');"
+        run: node -e "try { require('./src/build/dsp_js_native.node'); console.log('✅ Native module loaded from src/build'); } catch(e) { require('./build/Release/dsp_js_native.node'); console.log('✅ Native module loaded from build/Release'); }"
 
       - name: TypeScript type check
         run: npx tsc --noEmit
