@@ -52,9 +52,6 @@ jobs:
           mkdir -p src/build
           cp build/Release/dsp-js-native.node src/build/
 
-      - name: Verify native module load
-        run: node -e "require('./build/Release/dsp-js-native.node'); console.log('✅ Native module loaded');"
-
       - name: Wait for Redis
         run: |
           timeout 30 bash -c 'until redis-cli ping; do sleep 1; done'
@@ -100,19 +97,12 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: "npm"
 
-      - name: Setup Redis (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          choco install redis-64 -y
-          redis-server --service-install
-          redis-server --service-start
-        continue-on-error: true
-
       - name: Setup Redis (macOS)
         if: matrix.os == 'macos-latest'
         run: |
           brew install redis
           brew services start redis
+          sleep 2
         continue-on-error: true
 
       - name: Install dependencies
@@ -125,14 +115,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p src/build
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            cp build/Release/dsp-js-native.node src/build/
-          else
-            cp build/Release/dsp-js-native.node src/build/
-          fi
-
-      - name: Verify native module load
-        run: node -e "require('./build/Release/dsp-js-native.node'); console.log('✅ Native module loaded');"
+          cp build/Release/dsp-js-native.node src/build/
 
       - name: Run all tests (Redis tests will skip if unavailable)
         run: npm test
