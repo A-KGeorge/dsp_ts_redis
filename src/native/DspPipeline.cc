@@ -91,8 +91,23 @@ namespace dsp
         auto it = m_stageFactories.find(stageName);
         if (it != m_stageFactories.end())
         {
-            // Factory found - create and add the stage
-            m_stages.push_back(it->second(params));
+            try
+            {
+                // Factory found - create and add the stage
+                m_stages.push_back(it->second(params));
+            }
+            catch (const std::invalid_argument &e)
+            {
+                // Validation error in constructor - throw as JavaScript TypeError
+                Napi::TypeError::New(env, e.what()).ThrowAsJavaScriptException();
+                return env.Undefined();
+            }
+            catch (const std::exception &e)
+            {
+                // Other errors - throw as JavaScript Error
+                Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+                return env.Undefined();
+            }
         }
         else
         {

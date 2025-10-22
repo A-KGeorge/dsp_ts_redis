@@ -4,7 +4,8 @@
   "description": "High-performance DSP library with native C++ acceleration and Redis state persistence",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "tsx --test src/ts/__tests__/**/*.test.ts",
+    "test:watch": "tsx --test --watch src/ts/__tests__/**/*.test.ts",
     "build": "cmake-js compile",
     "build-gyp": "node-gyp rebuild",
     "prebuild": "prebuildify --napi --strip",
@@ -15,7 +16,15 @@
       10
     ]
   },
-  "keywords": ["dsp", "signal-processing", "native", "redis", "real-time", "audio", "biosignal"],
+  "keywords": [
+    "dsp",
+    "signal-processing",
+    "native",
+    "redis",
+    "real-time",
+    "audio",
+    "biosignal"
+  ],
   "author": "",
   "license": "ISC",
   "type": "module",
@@ -25,9 +34,13 @@
     "redis": "^5.8.3"
   },
   "devDependencies": {
+    "@jest/globals": "^30.2.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.9.1",
     "cmake-js": "^7.3.1",
+    "jest": "^30.2.0",
     "prebuildify": "^6.0.1",
+    "ts-jest": "^29.4.5",
     "tsx": "^4.20.6"
   }
 }

@@ -22,6 +22,11 @@ class DspProcessor {
    * @returns this instance for method chaining
    */
   MovingAverage(params: MovingAverageParams): this {
+    if (params.windowSize <= 0 || !Number.isInteger(params.windowSize)) {
+      throw new TypeError(
+        `MovingAverage: windowSize must be a positive integer, got ${params.windowSize}`
+      );
+    }
     this.nativeInstance.addStage("movingAverage", params);
     return this;
   }

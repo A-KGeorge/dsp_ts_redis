@@ -1,4 +1,5 @@
 #include "MovingAverageFilter.h"
+#include <stdexcept>
 
 using namespace dsp::core;
 
@@ -9,11 +10,12 @@ template <typename T>
 MovingAverageFilter<T>::MovingAverageFilter(size_t window_size)
     : buffer(window_size), // Initialize the circular buffer
       running_sum(0),
-      window_size(window_size > 0 ? window_size : 1) // Ensure window_size is at least 1
+      window_size(window_size)
 {
-    // buffer(window_size) will internally call new T[window_size],
-    // assuming CircularBufferArray handles a size of 0 or 1 correctly.
-    // Your implementation seems to handle size=0 by defaulting to 1, which is good.
+    if (window_size == 0)
+    {
+        throw std::invalid_argument("Window size must be greater than 0");
+    }
 }
 
 // -----------------------------------------------------------------------------

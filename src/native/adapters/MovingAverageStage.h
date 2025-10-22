@@ -16,7 +16,13 @@ namespace dsp
     public:
         // The constructor takes the parameter from TypeScript
         explicit MovingAverageStage(size_t window_size)
-            : m_window_size(window_size) {}
+            : m_window_size(window_size)
+        {
+            if (window_size == 0)
+            {
+                throw std::invalid_argument("MovingAverage: window size must be greater than 0");
+            }
+        }
 
         // Return the type identifier for this stage
         const char *getType() const override
