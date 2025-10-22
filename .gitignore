@@ -1,3 +1,6 @@
 node_modules/
 build/
 !src/build/
+
+# Prebuilt binaries (commit these if distributing via npm)
+# Uncomment to exclude: prebuilds/
