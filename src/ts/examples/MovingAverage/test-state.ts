@@ -2,7 +2,7 @@
  * Test script for state management (save/load/clear)
  */
 
-import { createDspPipeline } from "../bindings";
+import { createDspPipeline } from "../../bindings";
 
 async function testStateManagement() {
   console.log("=== Testing DSP Pipeline State Management ===\n");

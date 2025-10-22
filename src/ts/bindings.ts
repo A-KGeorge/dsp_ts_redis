@@ -3,6 +3,8 @@ import type {
   ProcessOptions,
   RedisConfig,
   MovingAverageParams,
+  RmsParams,
+  RectifyParams,
 } from "./types.js";
 const require = createRequire(import.meta.url);
 const DspAddon = require("../build/dsp-js-native.node");
@@ -24,14 +26,26 @@ class DspProcessor {
     return this;
   }
 
-  // /**
-  //  * Add a rectify stage to the pipeline (absolute value)
-  //  * @returns this instance for method chaining
-  //  */
-  // addRectify(): this {
-  //   this.nativeInstance.addStage("rectify", {});
-  //   return this;
-  // }
+  /**
+   * Add a RMS (root mean square) stage to the pipeline
+   * @param params - Configuration for the RMS filter
+   * @returns this instance for method chaining
+   */
+
+  Rms(params: RmsParams): this {
+    this.nativeInstance.addStage("rms", params);
+    return this;
+  }
+
+  /**
+   * Add a rectify stage to the pipeline
+   * @param params - Configuration for the rectify filter (optional)
+   * @returns this instance for method chaining
+   */
+  Rectify(params?: RectifyParams): this {
+    this.nativeInstance.addStage("rectify", params || { mode: "full" });
+    return this;
+  }
 
   // /**
   //  * Add a notch filter stage to the pipeline

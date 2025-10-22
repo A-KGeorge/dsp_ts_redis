@@ -2,7 +2,7 @@
  * Test streaming data processing with state continuity
  */
 
-import { createDspPipeline } from "../bindings";
+import { createDspPipeline } from "../../bindings";
 
 // Simulate streaming chunks of data
 async function* simulateDataStream(

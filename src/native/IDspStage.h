@@ -11,6 +11,13 @@ namespace dsp
         virtual ~IDspStage() = default;
 
         /**
+         * @brief Returns the type identifier of this stage.
+         *
+         * @return A string identifying the stage type (e.g., "movingAverage", "notchFilter").
+         */
+        virtual const char *getType() const = 0;
+
+        /**
          * @brief Processes a chunk of audio data in-place.
          *
          * @param buffer The interleaved audio buffer.

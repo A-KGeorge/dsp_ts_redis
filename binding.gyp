@@ -3,17 +3,15 @@
     {
       "target_name": "dsp-js-native",
       "sources": [
-        "src/native/DspPipeline.cc",
-        "src/native/core/MovingAverageFilter.cc",
-        "src/native/utils/CircularBufferArray.cc",
-        "src/native/utils/CircularBufferVector.cc"
+        "<!@(node -p \"require('fs').readdirSync('src/native').concat(require('fs').readdirSync('src/native/core').map(f=>'core/'+f), require('fs').readdirSync('src/native/utils').map(f=>'utils/'+f), require('fs').existsSync('src/native/emg') ? require('fs').readdirSync('src/native/emg').map(f=>'emg/'+f) : []).filter(f=>f.endsWith('.cc')).map(f=>'src/native/'+f).join(' ')\")"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",
         "src/native",
         "src/native/core",
         "src/native/utils",
-        "src/native/adapters"
+        "src/native/adapters",
+        "src/native/emg"
       ],
       "defines": [
         "NAPI_VERSION=10"

@@ -11,7 +11,7 @@
  */
 
 import { createClient } from "redis";
-import { createDspPipeline } from "../bindings";
+import { createDspPipeline } from "../../bindings";
 
 async function redisExample(startFresh = false) {
   console.log("=== DSP Pipeline with Redis State Persistence ===\n");

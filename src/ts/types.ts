@@ -21,3 +21,17 @@ export interface RedisConfig {
 export interface MovingAverageParams {
   windowSize: number;
 }
+
+/**
+ * Parameters for adding a RMS stage
+ */
+export interface RmsParams {
+  windowSize: number;
+}
+
+/**
+ * Parameters for adding a rectify stage
+ */
+export interface RectifyParams {
+  mode?: "full" | "half"; // Default: "full"
+}

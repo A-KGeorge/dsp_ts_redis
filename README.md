@@ -186,14 +186,117 @@ Implements a simple moving average (SMA) filter using a circular buffer for O(1)
 - Per-channel state for multi-channel processing
 - Full state serialization to Redis
 
-#### � Coming Soon
+**Use cases:**
+
+- Signal smoothing and noise reduction
+- Trend analysis
+- Low-pass filtering for real-time data streams
+
+##### RMS (Root Mean Square) Filter
+
+```typescript
+pipeline.Rms({ windowSize: number });
+```
+
+Implements an efficient RMS filter using a circular buffer with running sum of squares for O(1) calculation. Converts negative values to magnitude (always positive output).
+
+**Parameters:**
+
+- `windowSize`: Number of samples to calculate RMS over
+
+**Features:**
+
+- Maintains running sum of squares for optimal performance
+- Circular buffer with efficient memory usage
+- Per-channel state for multi-channel processing
+- Full state serialization to Redis including buffer contents and running sum of squares
+
+**Use cases:**
+
+- Signal envelope detection (amplitude tracking)
+- Power measurement in audio/EMG signals
+- Feature extraction for machine learning
+- Quality metrics for sensor data
+
+**Example:**
+
+```typescript
+const pipeline = createDspPipeline();
+pipeline.Rms({ windowSize: 20 });
+
+// Process amplitude-modulated signal
+const signal = new Float32Array([1, -2, 3, -4, 5]);
+const rms = await pipeline.process(signal, { sampleRate: 1000, channels: 1 });
+console.log(rms); // [1.0, 1.58, 2.16, 2.74, 3.32] - magnitude values
+```
+
+##### Rectify Filter
+
+```typescript
+pipeline.Rectify(params?: { mode?: "full" | "half" });
+```
+
+Implements signal rectification with two modes: full-wave (absolute value) and half-wave (zero out negatives). Stateless operation with no internal buffers.
+
+**Parameters:**
+
+- `mode` (optional): Rectification mode
+  - `"full"` (default): Full-wave rectification (absolute value) - converts all samples to positive
+  - `"half"`: Half-wave rectification - positive samples unchanged, negative samples → 0
+
+**Features:**
+
+- Zero overhead - simple sample-by-sample transformation
+- No internal state/buffers (stateless)
+- Mode is serializable for pipeline persistence
+- Works independently on each sample (no windowing)
+
+**Use cases:**
+
+- EMG signal pre-processing before envelope detection
+- AC to DC conversion in audio/biosignal processing
+- Preparing signals for RMS or moving average smoothing
+- Feature extraction requiring positive-only values
+
+**Examples:**
+
+```typescript
+// Full-wave rectification (default) - converts to absolute value
+const pipeline1 = createDspPipeline();
+pipeline1.Rectify(); // or Rectify({ mode: "full" })
+
+const bipolar = new Float32Array([1, -2, 3, -4, 5]);
+const fullWave = await pipeline1.process(bipolar, {
+  sampleRate: 1000,
+  channels: 1,
+});
+console.log(fullWave); // [1, 2, 3, 4, 5] - all positive
+
+// Half-wave rectification - zeros out negatives
+const pipeline2 = createDspPipeline();
+pipeline2.Rectify({ mode: "half" });
+
+const halfWave = await pipeline2.process(new Float32Array([1, -2, 3, -4, 5]), {
+  sampleRate: 1000,
+  channels: 1,
+});
+console.log(halfWave); // [1, 0, 3, 0, 5] - negatives become zero
+
+// Common pipeline: Rectify → RMS for EMG envelope
+const emgPipeline = createDspPipeline();
+emgPipeline
+  .Rectify({ mode: "full" }) // Convert to magnitude
+  .Rms({ windowSize: 50 }); // Calculate envelope
+```
+
+#### 🚧 Coming Soon
 
 The following filters are planned for future releases:
 
 - **IIR/FIR Filters**: Butterworth, Chebyshev, notch filters
 - **Transform Domain**: FFT, STFT, Hilbert transform
-- **EMG/Biosignal**: Rectification, envelope detection
-- **Feature Extraction**: RMS, variance, zero-crossing rate
+- **EMG/Biosignal**: Specialized EMG processing stages
+- **Feature Extraction**: Variance, zero-crossing rate, peak detection
 
 See the [project roadmap](./ROADMAP.md) for more details.
 
@@ -273,11 +376,13 @@ pipeline.clearState();
 The state serialization includes:
 
 - **Circular buffer contents**: All samples in order (oldest to newest)
-- **Running sums**: Maintained for O(1) average calculation
+- **Running sums/squares**: Maintained for O(1) calculations (moving average uses `runningSum`, RMS uses `runningSumOfSquares`)
 - **Per-channel state**: Independent state for each audio channel
-- **Metadata**: Window size, channel count, timestamps
+- **Metadata**: Window size, channel count, timestamps, filter type
 
-**State format:**
+**State format examples:**
+
+Moving Average state:
 
 ```json
 {
@@ -293,6 +398,31 @@ The state serialization includes:
           {
             "buffer": [3, 4, 5],
             "runningSum": 12
+          }
+        ]
+      }
+    }
+  ],
+  "stageCount": 1
+}
+```
+
+RMS state:
+
+```json
+{
+  "timestamp": 1761168608,
+  "stages": [
+    {
+      "index": 0,
+      "type": "rms",
+      "state": {
+        "windowSize": 3,
+        "numChannels": 1,
+        "channels": [
+          {
+            "buffer": [6, -7, 8],
+            "runningSumOfSquares": 149
           }
         ]
       }
@@ -369,19 +499,22 @@ for await (const chunk of sensorStream) {
 ```typescript
 import { createDspPipeline } from "dsp-ts-redis";
 
-// Process 4-channel EMG with independent filtering per channel
+// Process 4-channel EMG with rectification + RMS envelope detection
 const pipeline = createDspPipeline();
-pipeline.MovingAverage({ windowSize: 50 }); // Smooth envelope
+pipeline
+  .Rectify({ mode: "full" }) // Convert bipolar EMG to magnitude
+  .Rms({ windowSize: 50 }); // Calculate RMS envelope
 
 // Interleaved 4-channel data
 const emgData = new Float32Array(4000); // 1000 samples × 4 channels
 
-const smoothed = await pipeline.process(emgData, {
+const envelope = await pipeline.process(emgData, {
   sampleRate: 2000,
   channels: 4,
 });
 
-// Each channel maintains independent circular buffer state
+// Each channel maintains independent filter states
+// Output is smooth envelope tracking muscle activation
 ```
 
 ### Distributed Processing Across Workers
@@ -451,19 +584,31 @@ npm run build          # Compile C++ bindings with cmake-js
 redis-server
 
 # Run the Redis persistence example
-npx tsx ./src/ts/examples/redis-example.ts
+npx tsx ./src/ts/examples/redis/redis-example.ts
 
-# Run the state management test
-npx tsx ./src/ts/examples/test-state.ts
+# Moving Average examples
+npx tsx ./src/ts/examples/MovingAverage/test-state.ts
+npx tsx ./src/ts/examples/MovingAverage/test-streaming.ts
+
+# RMS examples
+npx tsx ./src/ts/examples/RMS/test-state.ts
+npx tsx ./src/ts/examples/RMS/test-streaming.ts
+
+# Rectify examples
+npx tsx ./src/ts/examples/Rectify/test-state.ts
+npx tsx ./src/ts/examples/Rectify/test-streaming.ts
 ```
 
 ### Implementation Status
 
 - ✅ **Moving Average Filter**: Fully implemented with state persistence
+- ✅ **RMS Filter**: Fully implemented with state persistence and envelope detection
+- ✅ **Rectify Filter**: Full-wave and half-wave rectification with mode persistence
 - ✅ **Circular Buffer**: Optimized with O(1) operations
 - ✅ **Multi-Channel Support**: Independent state per channel
-- ✅ **Redis State Serialization**: Complete buffer and sum persistence
+- ✅ **Redis State Serialization**: Complete buffer and sum/sum-of-squares persistence
 - ✅ **Async Processing**: Background thread via Napi::AsyncWorker
+- ✅ **Streaming Tests**: Comprehensive streaming validation with interruption recovery
 - 🚧 **Additional Filters**: IIR, FIR, FFT (coming soon)
 
 ---
@@ -472,8 +617,24 @@ npx tsx ./src/ts/examples/test-state.ts
 
 Check out the `/src/ts/examples` directory for complete working examples:
 
-- [`redis-example.ts`](./src/ts/examples/redis-example.ts) - Full Redis integration with state persistence
-- [`test-state.ts`](./src/ts/examples/test-state.ts) - State management and serialization demo
+### Redis Integration
+
+- [`redis/redis-example.ts`](./src/ts/examples/redis/redis-example.ts) - Full Redis integration with state persistence
+
+### Moving Average Filter
+
+- [`MovingAverage/test-state.ts`](./src/ts/examples/MovingAverage/test-state.ts) - State management (save/load/clear)
+- [`MovingAverage/test-streaming.ts`](./src/ts/examples/MovingAverage/test-streaming.ts) - Streaming data processing with interruption recovery
+
+### RMS Filter
+
+- [`RMS/test-state.ts`](./src/ts/examples/RMS/test-state.ts) - RMS state management with negative values
+- [`RMS/test-streaming.ts`](./src/ts/examples/RMS/test-streaming.ts) - Real-time envelope detection and multi-channel RMS
+
+### Rectify Filter
+
+- [`Rectify/test-state.ts`](./src/ts/examples/Rectify/test-state.ts) - Full-wave and half-wave rectification with state persistence
+- [`Rectify/test-streaming.ts`](./src/ts/examples/Rectify/test-streaming.ts) - EMG pre-processing and multi-channel rectification
 
 ---
 

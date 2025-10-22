@@ -4,4 +4,6 @@ export type {
   ProcessOptions,
   MovingAverageParams,
   RedisConfig,
+  RmsParams,
+  RectifyParams,
 } from "./types.js";

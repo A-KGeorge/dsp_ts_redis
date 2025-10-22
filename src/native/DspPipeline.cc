@@ -1,6 +1,8 @@
 // src/DspPipeline.cpp
 #include "DspPipeline.h"
 #include "adapters/MovingAverageStage.h"
+#include "adapters/RmsStage.h"
+#include "adapters/RectifyStage.h"
 // #include "NotchFilterStage.h" // You will add more here...
 // #include "ButterworthStage.h" // ...and here
 
@@ -47,6 +49,19 @@ namespace dsp
         {
             size_t windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
             return std::make_unique<MovingAverageStage>(windowSize);
+        };
+
+        m_stageFactories["rms"] = [](const Napi::Object &params)
+        {
+            size_t windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+            return std::make_unique<RmsStage>(windowSize);
+        };
+
+        m_stageFactories["rectify"] = [](const Napi::Object &params)
+        {
+            std::string modeStr = params.Get("mode").As<Napi::String>().Utf8Value();
+            RectifyMode mode = (modeStr == "half") ? RectifyMode::HalfWave : RectifyMode::FullWave;
+            return std::make_unique<RectifyStage>(mode);
         };
 
         // Add more stages here as you implement them:
@@ -208,7 +223,7 @@ namespace dsp
             Napi::Object stageConfig = Napi::Object::New(env);
 
             stageConfig.Set("index", static_cast<uint32_t>(i));
-            stageConfig.Set("type", "movingAverage"); // TODO: Add type identification system
+            stageConfig.Set("type", m_stages[i]->getType());
 
             // Serialize the stage's internal state
             stageConfig.Set("state", m_stages[i]->serializeState(env));
