@@ -38,7 +38,7 @@ jobs:
         run: brew install cmake
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build native addon
         run: npm run build
@@ -97,7 +97,7 @@ jobs:
         run: brew install cmake
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install prebuildify
         run: npm install --save-dev prebuildify
@@ -127,7 +127,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run ESLint (if configured)
         run: npx eslint src --max-warnings=0 || echo "⚠️ ESLint not configured, skipping"
