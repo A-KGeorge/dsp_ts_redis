@@ -1,5 +1,6 @@
 #include "CircularBufferVector.h"
 #include <algorithm>
+#include <stdexcept>
 
 // -----------------------------------------------------------------------------
 // Constructor
@@ -12,12 +13,6 @@ CircularBufferVector<T>::CircularBufferVector(size_t size)
 {
     this->buffer.resize(this->capacity);
 }
-
-// Prevent accidental copies
-template <typename T>
-CircularBufferVector<T>::CircularBufferVector(const CircularBufferVector &) = delete;
-template <typename T>
-CircularBufferVector<T> &CircularBufferVector<T>::operator=(const CircularBufferVector &) = delete;
 
 // -----------------------------------------------------------------------------
 // Method: push
@@ -44,7 +39,7 @@ bool CircularBufferVector<T>::push(const T &item)
 // @ param item - The item to remove
 // @ return bool - True if the item was removed, false if the buffer is empty
 template <typename T>
-bool CircularBufferVector<T>::pop(T &item)
+bool CircularBufferVector<T>::pop(T &item) noexcept
 {
     if (isEmpty())
     {
@@ -63,7 +58,7 @@ bool CircularBufferVector<T>::pop(T &item)
 // @ param void
 // @ return void
 template <typename T>
-void CircularBufferVector<T>::clear()
+void CircularBufferVector<T>::clear() noexcept
 {
     this->head = 0;
     this->tail = 0;
@@ -138,3 +133,8 @@ T CircularBufferVector<T>::peek() const
 
     return this->buffer[this->tail];
 }
+
+// Explicit template instantiation for common types
+template class CircularBufferVector<int>;
+template class CircularBufferVector<float>;
+template class CircularBufferVector<double>;

@@ -6,8 +6,8 @@ project (dsp-js-native VERSION 1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 
 add_definitions(-DNAPI_VERSION=10)
-include_directories(${CMAKE_JS_INC} "src/native/*")
-file(GLOB SOURCE_FILES "src/native/*")
+include_directories(${CMAKE_JS_INC} "src/native" "src/native/core" "src/native/utils" "src/native/adapters")
+file(GLOB_RECURSE SOURCE_FILES "src/native/*.cc" "src/native/*.cpp")
 
 add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES} ${CMAKE_JS_SRC})
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")

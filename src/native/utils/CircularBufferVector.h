@@ -13,10 +13,14 @@ public:
     CircularBufferVector(const CircularBufferVector &other) = delete;            // disable copy to avoid shallow copy
     CircularBufferVector &operator=(const CircularBufferVector &other) = delete; // disable copy assignment to avoid shallow copy
 
+    // move semantics
+    CircularBufferVector(CircularBufferVector &&other) noexcept = default;
+    CircularBufferVector &operator=(CircularBufferVector &&other) noexcept = default;
+
     // methods
     bool push(const T &item);
-    bool pop(T &item);
-    void clear();
+    bool pop(T &item) noexcept;
+    void clear() noexcept;
     void pushOverwrite(const T &item);
 
     // getters

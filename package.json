@@ -19,7 +19,8 @@
   "type": "module",
   "dependencies": {
     "cmake-js": "^7.3.1",
-    "node-addon-api": "^8.5.0"
+    "node-addon-api": "^8.5.0",
+    "redis": "^5.8.3"
   },
   "devDependencies": {
     "@types/node": "^24.9.1",

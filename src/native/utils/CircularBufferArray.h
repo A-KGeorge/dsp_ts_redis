@@ -11,17 +11,21 @@ public:
     CircularBufferArray(const CircularBufferArray &other) = delete;            // disable copy to avoid shallow copy
     CircularBufferArray &operator=(const CircularBufferArray &other) = delete; // disable copy assignment to avoid shallow copy
 
+    // move semantics
+    CircularBufferArray(CircularBufferArray &&other) noexcept;
+    CircularBufferArray &operator=(CircularBufferArray &&other) noexcept;
+
     // methods
     bool push(const T &item);
-    bool pop(T &item);
-    void clear();
+    bool pop(T &item) noexcept;
+    void clear() noexcept;
     void pushOverwrite(const T &item);
 
     // getters
-    size_t getCapacity() const;
-    size_t getCount() const;
-    bool isEmpty() const;
-    bool isFull() const;
+    size_t getCapacity() const noexcept;
+    size_t getCount() const noexcept;
+    bool isEmpty() const noexcept;
+    bool isFull() const noexcept;
     T peek() const;
 
     // destructor

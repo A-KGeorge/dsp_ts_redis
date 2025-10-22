@@ -1,5 +1,6 @@
 #include "CircularBufferArray.h"
 #include <algorithm>
+#include <stdexcept>
 
 // -----------------------------------------------------------------------------
 // Constructor
@@ -14,11 +15,57 @@ CircularBufferArray<T>::CircularBufferArray(size_t size)
     this->buffer = new T[this->capacity]();
 }
 
-// Prevent accidental copies
+// -----------------------------------------------------------------------------
+// Move Constructor
+// Transfers ownership of resources from another CircularBufferArray
+// @ param other - The CircularBufferArray to move from
+// -----------------------------------------------------------------------------
 template <typename T>
-CircularBufferArray<T>::CircularBufferArray(const CircularBufferArray &) = delete;
+CircularBufferArray<T>::CircularBufferArray(CircularBufferArray &&other) noexcept
+    : buffer(other.buffer),
+      head(other.head),
+      tail(other.tail),
+      capacity(other.capacity),
+      count(other.count)
+{
+    // Reset the other object to a valid but empty state
+    other.buffer = nullptr;
+    other.head = 0;
+    other.tail = 0;
+    other.capacity = 0;
+    other.count = 0;
+}
+
+// -----------------------------------------------------------------------------
+// Move Assignment Operator
+// Transfers ownership of resources from another CircularBufferArray
+// @ param other - The CircularBufferArray to move from
+// @ return CircularBufferArray& - Reference to this object
+// -----------------------------------------------------------------------------
 template <typename T>
-CircularBufferArray<T> &CircularBufferArray<T>::operator=(const CircularBufferArray &) = delete;
+CircularBufferArray<T> &CircularBufferArray<T>::operator=(CircularBufferArray &&other) noexcept
+{
+    if (this != &other)
+    {
+        // Clean up existing resources
+        delete[] buffer;
+
+        // Transfer ownership
+        buffer = other.buffer;
+        head = other.head;
+        tail = other.tail;
+        capacity = other.capacity;
+        count = other.count;
+
+        // Reset the other object to a valid but empty state
+        other.buffer = nullptr;
+        other.head = 0;
+        other.tail = 0;
+        other.capacity = 0;
+        other.count = 0;
+    }
+    return *this;
+}
 
 // -----------------------------------------------------------------------------
 // Method: push
@@ -47,7 +94,7 @@ bool CircularBufferArray<T>::push(const T &item)
 // @ return bool - True if the item was removed, false if the buffer is empty
 // -----------------------------------------------------------------------------
 template <typename T>
-bool CircularBufferArray<T>::pop(T &item)
+bool CircularBufferArray<T>::pop(T &item) noexcept
 {
     if (isEmpty())
     {
@@ -68,7 +115,7 @@ bool CircularBufferArray<T>::pop(T &item)
 // @ return void
 // -----------------------------------------------------------------------------
 template <typename T>
-void CircularBufferArray<T>::clear()
+void CircularBufferArray<T>::clear() noexcept
 {
     this->head = 0;
     this->tail = 0;
@@ -97,7 +144,7 @@ void CircularBufferArray<T>::pushOverwrite(const T &item)
 // @ return size_t - The capacity of the circular buffer
 // -----------------------------------------------------------------------------
 template <typename T>
-size_t CircularBufferArray<T>::getCapacity() const
+size_t CircularBufferArray<T>::getCapacity() const noexcept
 {
     return this->capacity;
 }
@@ -108,7 +155,7 @@ size_t CircularBufferArray<T>::getCapacity() const
 // @ return size_t - The number of elements in the circular buffer
 // -----------------------------------------------------------------------------
 template <typename T>
-size_t CircularBufferArray<T>::getCount() const
+size_t CircularBufferArray<T>::getCount() const noexcept
 {
     return this->count;
 }
@@ -119,7 +166,7 @@ size_t CircularBufferArray<T>::getCount() const
 // @ return bool - True if the buffer is empty, false otherwise
 // -----------------------------------------------------------------------------
 template <typename T>
-bool CircularBufferArray<T>::isEmpty() const
+bool CircularBufferArray<T>::isEmpty() const noexcept
 {
     return this->count == 0;
 }
@@ -130,7 +177,7 @@ bool CircularBufferArray<T>::isEmpty() const
 // @ return bool - True if the buffer is full, false otherwise
 // -----------------------------------------------------------------------------
 template <typename T>
-bool CircularBufferArray<T>::isFull() const
+bool CircularBufferArray<T>::isFull() const noexcept
 {
     return this->count == this->capacity;
 }
@@ -161,6 +208,6 @@ CircularBufferArray<T>::~CircularBufferArray()
 }
 
 // Explicit template instantiation for common types
-// template class CircularBufferArray<int>;
-// template class CircularBufferArray<float>;
-// template class CircularBufferArray<double>;
+template class CircularBufferArray<int>;
+template class CircularBufferArray<float>;
+template class CircularBufferArray<double>;

@@ -1,0 +1,335 @@
+// src/DspPipeline.cpp
+#include "DspPipeline.h"
+#include "adapters/MovingAverageStage.h"
+// #include "NotchFilterStage.h" // You will add more here...
+// #include "ButterworthStage.h" // ...and here
+
+#include <iostream>
+#include <ctime>
+
+namespace dsp
+{
+
+    // N-API Boilerplate: Init function
+    Napi::Object DspPipeline::Init(Napi::Env env, Napi::Object exports)
+    {
+        Napi::Function func = DefineClass(env, "DspPipeline", {
+                                                                  // Pipeline building
+                                                                  InstanceMethod("addStage", &DspPipeline::AddStage),
+
+                                                                  // Processing
+                                                                  InstanceMethod("process", &DspPipeline::ProcessAsync),
+
+                                                                  // State management (for Redis persistence from TypeScript)
+                                                                  InstanceMethod("saveState", &DspPipeline::SaveState),
+                                                                  InstanceMethod("loadState", &DspPipeline::LoadState),
+                                                                  InstanceMethod("clearState", &DspPipeline::ClearState),
+                                                              });
+
+        exports.Set("DspPipeline", func);
+        return exports;
+    }
+
+    // N-API Boilerplate: Constructor
+    DspPipeline::DspPipeline(const Napi::CallbackInfo &info)
+        : Napi::ObjectWrap<DspPipeline>(info)
+    {
+        // Config logic from TS (redis, stateKey) would go here
+        InitializeStageFactories();
+    }
+
+    /**
+     * Initialize the stage factory map with all available stages
+     */
+    void DspPipeline::InitializeStageFactories()
+    {
+        m_stageFactories["movingAverage"] = [](const Napi::Object &params)
+        {
+            size_t windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+            return std::make_unique<MovingAverageStage>(windowSize);
+        };
+
+        // Add more stages here as you implement them:
+        // m_stageFactories["rectify"] = [](const Napi::Object& params) {
+        //     return std::make_unique<RectifyStage>();
+        // };
+        //
+        // m_stageFactories["notchFilter"] = [](const Napi::Object& params) {
+        //     double freq = params.Get("freqHz").As<Napi::Number>().DoubleValue();
+        //     return std::make_unique<NotchFilterStage>(freq);
+        // };
+    }
+
+    /**
+     * This is the "Factory" method.
+     * TS calls: native.addStage("movingAverage", { windowSize: 100 })
+     */
+    Napi::Value DspPipeline::AddStage(const Napi::CallbackInfo &info)
+    {
+        Napi::Env env = info.Env();
+
+        // 1. Get arguments from TypeScript
+        std::string stageName = info[0].As<Napi::String>();
+        Napi::Object params = info[1].As<Napi::Object>();
+
+        // 2. Look up the stage factory in the map
+        auto it = m_stageFactories.find(stageName);
+        if (it != m_stageFactories.end())
+        {
+            // Factory found - create and add the stage
+            m_stages.push_back(it->second(params));
+        }
+        else
+        {
+            // Unknown stage type - throw error
+            Napi::TypeError::New(env, "Unknown stage type: " + stageName).ThrowAsJavaScriptException();
+        }
+
+        return env.Undefined();
+    }
+
+    /**
+     * AsyncWorker for processing DSP pipeline in background thread
+     */
+    class ProcessWorker : public Napi::AsyncWorker
+    {
+    public:
+        ProcessWorker(Napi::Env env,
+                      Napi::Promise::Deferred deferred,
+                      std::vector<std::unique_ptr<IDspStage>> &stages,
+                      float *data,
+                      size_t numSamples,
+                      int channels,
+                      Napi::Reference<Napi::Float32Array> &&bufferRef)
+            : Napi::AsyncWorker(env),
+              m_deferred(std::move(deferred)),
+              m_stages(stages),
+              m_data(data),
+              m_numSamples(numSamples),
+              m_channels(channels),
+              m_bufferRef(std::move(bufferRef))
+        {
+        }
+
+    protected:
+        // This runs on a worker thread (not blocking the event loop)
+        void Execute() override
+        {
+            try
+            {
+                // Process the buffer through all stages
+                for (const auto &stage : m_stages)
+                {
+                    stage->process(m_data, m_numSamples, m_channels);
+                }
+            }
+            catch (const std::exception &e)
+            {
+                SetError(e.what());
+            }
+        }
+
+        // This runs on the main thread after Execute() completes
+        void OnOK() override
+        {
+            Napi::Env env = Env();
+            // Resolve the promise with the processed buffer
+            Napi::Float32Array buffer = m_bufferRef.Value();
+            m_deferred.Resolve(buffer);
+        }
+
+        void OnError(const Napi::Error &error) override
+        {
+            m_deferred.Reject(error.Value());
+        }
+
+    private:
+        Napi::Promise::Deferred m_deferred;
+        std::vector<std::unique_ptr<IDspStage>> &m_stages;
+        float *m_data;
+        size_t m_numSamples;
+        int m_channels;
+        Napi::Reference<Napi::Float32Array> m_bufferRef;
+    };
+
+    /**
+     * This is the "Process" method.
+     * TS calls: await native.process(buffer, { sampleRate: 2000, channels: 4 })
+     * Returns a Promise that resolves when processing is complete.
+     */
+    Napi::Value DspPipeline::ProcessAsync(const Napi::CallbackInfo &info)
+    {
+        Napi::Env env = info.Env();
+
+        // 1. Get buffer from TypeScript (zero-copy)
+        Napi::Float32Array jsBuffer = info[0].As<Napi::Float32Array>();
+        float *data = jsBuffer.Data();
+        size_t numSamples = jsBuffer.ElementLength();
+
+        // 2. Get options
+        Napi::Object options = info[1].As<Napi::Object>();
+        int channels = options.Get("channels").As<Napi::Number>().Uint32Value();
+        // int sampleRate = options.Get("sampleRate").As<Napi::Number>().Uint32Value();
+
+        // 3. Create a deferred promise and get the promise before moving
+        Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
+        Napi::Promise promise = deferred.Promise();
+
+        // 4. Create a reference to the buffer to keep it alive during async operation
+        Napi::Reference<Napi::Float32Array> bufferRef = Napi::Reference<Napi::Float32Array>::New(jsBuffer, 1);
+
+        // 5. Create and queue the worker
+        ProcessWorker *worker = new ProcessWorker(env, std::move(deferred), m_stages, data, numSamples, channels, std::move(bufferRef));
+        worker->Queue();
+
+        // 6. Return the promise immediately
+        return promise;
+    }
+
+    /**
+     * Save current pipeline state as JSON string
+     * TypeScript will handle storing this in Redis
+     *
+     * Returns: JSON string with pipeline configuration and stage states
+     */
+    Napi::Value DspPipeline::SaveState(const Napi::CallbackInfo &info)
+    {
+        Napi::Env env = info.Env();
+        Napi::Object stateObj = Napi::Object::New(env);
+
+        // Save timestamp
+        stateObj.Set("timestamp", static_cast<double>(std::time(nullptr)));
+
+        // Save pipeline configuration
+        Napi::Array stagesArray = Napi::Array::New(env, m_stages.size());
+
+        for (size_t i = 0; i < m_stages.size(); i++)
+        {
+            Napi::Object stageConfig = Napi::Object::New(env);
+
+            // TODO: Each stage type should implement a serialize() method
+            // For now, we'll save basic stage info
+            // In a full implementation, each stage would serialize its internal state
+            // (e.g., MovingAverageFilter would save its circular buffer contents)
+
+            // This is a simplified version - you'd extend IDspStage with serialize/deserialize
+            stageConfig.Set("index", static_cast<uint32_t>(i));
+            stageConfig.Set("type", "movingAverage"); // TODO: Get actual type from stage
+
+            // Example of what full implementation would look like:
+            // stageConfig.Set("state", m_stages[i]->serializeState(env));
+
+            stagesArray.Set(static_cast<uint32_t>(i), stageConfig);
+        }
+
+        stateObj.Set("stages", stagesArray);
+        stateObj.Set("stageCount", static_cast<uint32_t>(m_stages.size()));
+
+        // Convert to JSON string using JavaScript's JSON.stringify
+        Napi::Object JSON = env.Global().Get("JSON").As<Napi::Object>();
+        Napi::Function stringify = JSON.Get("stringify").As<Napi::Function>();
+        return stringify.Call(JSON, {stateObj});
+    }
+
+    /**
+     * Load pipeline state from JSON string
+     * TypeScript retrieves this from Redis and passes it here
+     *
+     * Accepts: JSON string with pipeline configuration
+     */
+    Napi::Value DspPipeline::LoadState(const Napi::CallbackInfo &info)
+    {
+        Napi::Env env = info.Env();
+
+        // Validate input
+        if (info.Length() < 1 || !info[0].IsString())
+        {
+            Napi::TypeError::New(env, "Expected state JSON string as first argument")
+                .ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        std::string stateJson = info[0].As<Napi::String>().Utf8Value();
+
+        try
+        {
+            // Parse JSON string using JavaScript's JSON.parse
+            Napi::Object JSON = env.Global().Get("JSON").As<Napi::Object>();
+            Napi::Function parse = JSON.Get("parse").As<Napi::Function>();
+            Napi::Object stateObj = parse.Call(JSON, {Napi::String::New(env, stateJson)}).As<Napi::Object>();
+
+            // Validate state object has required fields
+            if (!stateObj.Has("stages"))
+            {
+                Napi::Error::New(env, "Invalid state: missing 'stages' field")
+                    .ThrowAsJavaScriptException();
+                return Napi::Boolean::New(env, false);
+            }
+
+            // Get stages array
+            Napi::Array stagesArray = stateObj.Get("stages").As<Napi::Array>();
+            uint32_t stageCount = stagesArray.Length();
+
+            // Log restoration (optional)
+            std::cout << "Restoring pipeline state with " << stageCount << " stages" << std::endl;
+
+            // TODO: Full implementation would:
+            // 1. Clear existing stages or validate they match
+            // 2. For each stage, call its deserialize() method to restore internal state
+            // 3. Restore circular buffers, running sums, etc.
+
+            // Example of what full implementation would look like:
+            // for (uint32_t i = 0; i < stageCount; i++)
+            // {
+            //     Napi::Object stageConfig = stagesArray.Get(i).As<Napi::Object>();
+            //     if (i < m_stages.size())
+            //     {
+            //         m_stages[i]->deserializeState(stageConfig.Get("state"));
+            //     }
+            // }
+
+            return Napi::Boolean::New(env, true);
+        }
+        catch (const std::exception &e)
+        {
+            Napi::Error::New(env, std::string("Failed to load state: ") + e.what())
+                .ThrowAsJavaScriptException();
+            return Napi::Boolean::New(env, false);
+        }
+    }
+
+    /**
+     * Clear all pipeline state (reset all stages)
+     * This resets filters to their initial state without removing them
+     */
+    Napi::Value DspPipeline::ClearState(const Napi::CallbackInfo &info)
+    {
+        Napi::Env env = info.Env();
+
+        // TODO: Each stage should implement a reset() method
+        // For now, we'll just clear the stages vector
+        // In a full implementation, you'd call reset() on each stage to clear
+        // circular buffers, running sums, etc. without removing the stage
+
+        // Example of what full implementation would look like:
+        // for (auto& stage : m_stages)
+        // {
+        //     stage->reset();
+        // }
+
+        std::cout << "Pipeline state cleared (" << m_stages.size() << " stages remain)" << std::endl;
+
+        return env.Undefined();
+    }
+
+} // namespace dsp
+
+// This function is called by Node.js when the addon is loaded
+Napi::Object InitAll(Napi::Env env, Napi::Object exports)
+{
+    // It initializes and exports your *one* DspPipeline class
+    return dsp::DspPipeline::Init(env, exports);
+}
+
+// This line registers the module
+NODE_API_MODULE(dsp_addon, InitAll)

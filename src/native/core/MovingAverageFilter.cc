@@ -1,4 +1,4 @@
-#include "core/MovingAverage.h"
+#include "MovingAverageFilter.h"
 
 using namespace dsp::core;
 
@@ -73,7 +73,12 @@ void MovingAverageFilter<T>::clear()
 // Method: isFull
 // -----------------------------------------------------------------------------
 template <typename T>
-bool MovingAverageFilter<T>::isFull() const
+bool MovingAverageFilter<T>::isFull() const noexcept
 {
     return buffer.isFull();
 }
+
+// Explicit template instantiation for common types
+template class MovingAverageFilter<int>;
+template class MovingAverageFilter<float>;
+template class MovingAverageFilter<double>;

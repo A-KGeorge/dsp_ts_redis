@@ -1,4 +1,7 @@
-import { DSPSystem } from "./bindings";
-
-const dsp = new DSPSystem("DSPSystem");
-console.log(dsp.greet("Alan"));
+// Export the main API
+export { createDspPipeline, DspProcessor } from "./bindings.js";
+export type {
+  ProcessOptions,
+  MovingAverageParams,
+  RedisConfig,
+} from "./types.js";
