@@ -5,6 +5,9 @@
 #include "../core/MovingAverageFilter.h"  // Your existing files
 #include <vector>
 #include <stdexcept>
+#include <cmath>
+#include <string>
+#include <algorithm>
 
 namespace dsp
 {
@@ -117,6 +120,23 @@ namespace dsp
 
                 // Get running sum
                 float runningSum = channelState.Get("runningSum").As<Napi::Number>().FloatValue();
+
+                // Validate that runningSum matches the actual sum of buffer values
+                float actualSum = 0.0f;
+                for (const auto &val : bufferData)
+                {
+                    actualSum += val;
+                }
+
+                // Allow small floating-point tolerance
+                const float tolerance = 0.0001f * std::max(1.0f, std::abs(actualSum));
+                if (std::abs(runningSum - actualSum) > tolerance)
+                {
+                    throw std::runtime_error(
+                        "Running sum validation failed: expected " +
+                        std::to_string(actualSum) + " but got " +
+                        std::to_string(runningSum));
+                }
 
                 // Restore the filter's state
                 m_filters[i].setState(bufferData, runningSum);

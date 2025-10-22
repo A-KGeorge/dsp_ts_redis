@@ -5,6 +5,9 @@
 #include "../core/RmsFilter.h" // Include the new RMS filter
 #include <vector>
 #include <stdexcept>
+#include <cmath>
+#include <string>
+#include <algorithm>
 
 namespace dsp
 {
@@ -118,6 +121,21 @@ namespace dsp
 
                 // Get running sum of squares
                 float runningSumOfSquares = channelState.Get("runningSumOfSquares").As<Napi::Number>().FloatValue();
+
+                // Validate runningSumOfSquares matches buffer contents
+                float actualSumOfSquares = 0.0f;
+                for (const auto &val : bufferData)
+                {
+                    actualSumOfSquares += val * val;
+                }
+                const float tolerance = 0.0001f * std::max(1.0f, std::abs(actualSumOfSquares));
+                if (std::abs(runningSumOfSquares - actualSumOfSquares) > tolerance)
+                {
+                    throw std::runtime_error(
+                        "Running sum of squares validation failed: expected " +
+                        std::to_string(actualSumOfSquares) + " but got " +
+                        std::to_string(runningSumOfSquares));
+                }
 
                 // Restore the filter's state
                 m_filters[i].setState(bufferData, runningSumOfSquares);
