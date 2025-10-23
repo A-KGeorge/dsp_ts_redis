@@ -44,34 +44,23 @@ graph TB
 
     subgraph "C++ Layer (src/native/)"
         subgraph "dsp::adapters (N-API Adapters)"
-            ADAPTER_MA["MovingAverageStage.h"]
-            ADAPTER_RMS["RmsStage.h"]
-            ADAPTER_RECT["RectifyStage.h"]
-            ADAPTER_VAR["VarianceStage.h"]
-            ADAPTER_ZSCORE["ZScoreNormalizeStage.h"]
+            ADAPTER_EXAMPLE["Example: MovingAverageStage<br/>(supports batch/moving modes)"]
+            ADAPTER_STATELESS["Example: RectifyStage<br/>(stateless only)"]
         end
 
         PIPELINE["DspPipeline.cc<br/>(Stage Orchestration)"]
 
         subgraph "dsp::core (Pure C++ Algorithms)"
-            CORE_ENGINE["SlidingWindowFilter<br/>(Generic Engine)"]
-            CORE_MA["MovingAverageFilter"]
-            CORE_RMS["RmsFilter"]
-            CORE_MAV["MovingAbsoluteValueFilter"]
-            CORE_VAR["MovingVarianceFilter"]
-            CORE_ZSCORE["MovingZScoreFilter"]
+            CORE_ENGINE["SlidingWindowFilter<br/>(Generic Stateful Engine)"]
+            CORE_FILTER["Example: MovingAverageFilter<br/>(wraps SlidingWindowFilter)<br/><b>Stateful - Moving Mode</b>"]
 
             subgraph "Statistical Policies"
-                POLICY_MEAN["MeanPolicy"]
-                POLICY_RMS["RmsPolicy"]
-                POLICY_MAV["MeanAbsoluteValuePolicy"]
-                POLICY_VAR["VariancePolicy"]
-                POLICY_ZSCORE["ZScorePolicy"]
+                POLICY_EXAMPLE["Example: MeanPolicy<br/>(pure computation)<br/><b>Stateless - Batch Mode</b>"]
             end
         end
 
         subgraph "dsp::utils (Data Structures)"
-            CIRCULAR["CircularBuffer<br/>(Array & Vector)"]
+            CIRCULAR["CircularBuffer<br/>(Array & Vector)<br/><b>Stateful Storage</b>"]
         end
     end
 
@@ -83,28 +72,15 @@ graph TB
     TS_API --> NAPI
     TS_REDIS --> REDIS_DB
     NAPI --> PIPELINE
-    PIPELINE --> ADAPTER_MA
-    PIPELINE --> ADAPTER_RMS
-    PIPELINE --> ADAPTER_RECT
-    PIPELINE --> ADAPTER_VAR
-    PIPELINE --> ADAPTER_ZSCORE
+    PIPELINE --> ADAPTER_EXAMPLE
+    PIPELINE --> ADAPTER_STATELESS
 
-    ADAPTER_MA --> CORE_MA
-    ADAPTER_RMS --> CORE_RMS
-    ADAPTER_VAR --> CORE_VAR
-    ADAPTER_ZSCORE --> CORE_ZSCORE
+    ADAPTER_EXAMPLE --> CORE_FILTER
+    ADAPTER_EXAMPLE --> POLICY_EXAMPLE
 
-    CORE_MA --> CORE_ENGINE
-    CORE_RMS --> CORE_ENGINE
-    CORE_MAV --> CORE_ENGINE
-    CORE_VAR --> CORE_ENGINE
-    CORE_ZSCORE --> CORE_ENGINE
+    CORE_FILTER --> CORE_ENGINE
 
-    CORE_ENGINE --> POLICY_MEAN
-    CORE_ENGINE --> POLICY_RMS
-    CORE_ENGINE --> POLICY_MAV
-    CORE_ENGINE --> POLICY_VAR
-    CORE_ENGINE --> POLICY_ZSCORE
+    CORE_ENGINE --> POLICY_EXAMPLE
 
     CORE_ENGINE --> CIRCULAR
 
