@@ -97,6 +97,35 @@ namespace dsp::utils
          */
         const Policy &getPolicy() const;
 
+        /**
+         * @brief Exports the complete filter state (buffer + policy state).
+         *
+         * This is a generic state serialization method that works with any policy
+         * that implements getState(). Returns a pair of buffer contents and policy state.
+         *
+         * @return std::pair<std::vector<T>, PolicyState> Buffer contents and policy state.
+         */
+        auto getState() const -> std::pair<std::vector<T>, decltype(std::declval<Policy>().getState())>
+        {
+            return {m_buffer.toVector(), m_policy.getState()};
+        }
+
+        /**
+         * @brief Restores the complete filter state (buffer + policy state).
+         *
+         * This is a generic state deserialization method that works with any policy
+         * that implements setState(). Restores both buffer contents and policy state.
+         *
+         * @param bufferData The buffer contents to restore.
+         * @param policyState The policy state to restore (type depends on policy).
+         */
+        template <typename PolicyState>
+        void setState(const std::vector<T> &bufferData, const PolicyState &policyState)
+        {
+            m_buffer.fromVector(bufferData);
+            m_policy.setState(policyState);
+        }
+
     private:
         CircularBufferArray<T> m_buffer;
         Policy m_policy;

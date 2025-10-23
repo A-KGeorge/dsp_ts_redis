@@ -145,6 +145,57 @@ The sliding window filters use **compile-time polymorphism** via template polici
 
 Example: `MovingAverageFilter` is a thin wrapper around `SlidingWindowFilter<float, MeanPolicy<float>>`
 
+**2.1 Layered State Management**
+
+State serialization follows a **3-tier delegation pattern** where each layer manages only its own state:
+
+```
+Policy Layer        →  getState() returns policy-specific state (running sums, counters, etc.)
+      ↓
+SlidingWindowFilter →  getState() returns {buffer contents, policy state}
+      ↓
+Filter Wrapper      →  getState() delegates to SlidingWindowFilter
+```
+
+**Example Implementation:**
+
+```cpp
+// Policy manages its own statistical state
+template <typename T>
+struct MeanPolicy {
+    T m_sum{};  // Policy-specific state
+
+    auto getState() const -> T { return m_sum; }
+    void setState(T sum) { m_sum = sum; }
+};
+
+// SlidingWindowFilter coordinates buffer + policy state
+template <typename T, typename Policy>
+class SlidingWindowFilter {
+    auto getState() const {
+        return std::make_pair(m_buffer.toVector(), m_policy.getState());
+    }
+
+    template <typename PolicyState>
+    void setState(const std::vector<T>& bufferData, const PolicyState& policyState) {
+        m_buffer.fromVector(bufferData);
+        m_policy.setState(policyState);
+    }
+};
+
+// Filter delegates without knowledge of internals
+class MovingAverageFilter {
+    auto getState() const { return m_filter.getState(); }  // Clean delegation
+};
+```
+
+**Benefits:**
+
+- ✅ **Separation of concerns**: Each layer owns its state
+- ✅ **Type safety**: Policies can have different state types
+- ✅ **Extensibility**: Adding new policies doesn't change SlidingWindowFilter
+- ✅ **DRY principle**: No duplicate state assembly code in each filter
+
 **3. Layered Design**
 
 - **TypeScript Layer**: User-facing API, type safety, Redis integration
@@ -153,9 +204,20 @@ Example: `MovingAverageFilter` is a thin wrapper around `SlidingWindowFilter<flo
 
 **4. State Management**
 
-- Each filter maintains internal state (circular buffers, running sums)
-- Full state serialization to JSON for Redis persistence
-- State validation on deserialization ensures data integrity
+State serialization uses a **layered delegation pattern** (see section 2.1):
+
+- **Policy Layer**: Manages statistical state (running sums, variance accumulators, etc.)
+- **SlidingWindowFilter**: Coordinates buffer contents + policy state
+- **Filter Wrapper**: Delegates to SlidingWindowFilter without knowledge of internals
+
+Full state serialization to JSON enables:
+
+- ✅ Redis persistence for distributed processing
+- ✅ Process continuity across restarts
+- ✅ State migration between workers
+- ✅ Data integrity validation on deserialization
+
+Each filter's `getState()` returns a tuple `{bufferData: T[], policyState: PolicyState}` that can be JSON-serialized through the TypeScript layer.
 
 **5. Mode Architecture** (MovingAverage, RMS, Variance, ZScoreNormalize)
 

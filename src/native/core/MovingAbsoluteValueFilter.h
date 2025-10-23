@@ -70,23 +70,28 @@ namespace dsp::core
 
         /**
          * @brief Exports the filter's internal state.
+         *
+         * Delegates to SlidingWindowFilter's generic state management.
+         *
          * @return A pair containing the buffer contents (original values)
          * and the running sum of absolute values.
          */
         std::pair<std::vector<T>, T> getState() const
         {
-            return {m_filter.getBufferContents(), m_filter.getPolicy().getState()};
+            return m_filter.getState();
         }
 
         /**
          * @brief Restores the filter's internal state.
+         *
+         * Delegates to SlidingWindowFilter's generic state management.
+         *
          * @param bufferData The buffer contents (original values) to restore.
          * @param sumOfAbs The running sum of absolute values to restore.
          */
         void setState(const std::vector<T> &bufferData, T sumOfAbs)
         {
-            m_filter.setBufferContents(bufferData);
-            m_filter.getPolicy().setState(sumOfAbs);
+            m_filter.setState(bufferData, sumOfAbs);
         }
 
     private:

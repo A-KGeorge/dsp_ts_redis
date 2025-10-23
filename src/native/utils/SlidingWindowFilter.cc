@@ -130,6 +130,9 @@ const Policy &SlidingWindowFilter<T, Policy>::getPolicy() const
     return m_policy;
 }
 
+// Note: getState() and setState() are template methods defined in the header
+// They use decltype and are auto-deduced, so they must remain in the header
+
 // -----------------------------------------------------------------------------
 // Explicit template instantiations
 // Instantiate all Policy combinations we use
