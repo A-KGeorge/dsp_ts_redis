@@ -102,8 +102,8 @@ for (const testCase of testCases) {
 }
 
 console.log("Key Benefits of Circular Buffer:");
-console.log("   ✅ Fixed memory footprint (no array reallocations)");
-console.log("   ✅ No garbage collection pressure from temporary arrays");
-console.log("   ✅ Cache-friendly memory access pattern");
-console.log("   ✅ Predictable performance under load");
-console.log("   ✅ Handles burst logging gracefully (overwrites oldest)");
+console.log("   - Fixed memory footprint (no array reallocations)");
+console.log("   - No garbage collection pressure from temporary arrays");
+console.log("   - Cache-friendly memory access pattern");
+console.log("   - Predictable performance under load");
+console.log("   - Handles burst logging gracefully (overwrites oldest)");

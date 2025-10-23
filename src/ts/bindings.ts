@@ -10,6 +10,7 @@ import type {
   PipelineCallbacks,
   LogEntry,
   SampleBatch,
+  TapCallback,
 } from "./types.js";
 import { CircularLogBuffer } from "./CircularLogBuffer.js";
 
@@ -57,6 +58,8 @@ class DspProcessor {
   private stages: string[] = [];
   private callbacks?: PipelineCallbacks;
   private logBuffer: CircularLogBuffer;
+  private tapCallbacks: Array<{ stageName: string; callback: TapCallback }> =
+    [];
 
   constructor(private nativeInstance: any) {
     // Initialize circular buffer with capacity for typical log volume
@@ -65,26 +68,99 @@ class DspProcessor {
   }
 
   /**
+   * Generate a Kafka-style topic for a log entry
+   */
+  private generateLogTopic(
+    level: "debug" | "info" | "warn" | "error",
+    context?: any
+  ): string {
+    const stage = context?.stage;
+    const category = context?.category || level;
+
+    if (stage) {
+      // Stage-specific topic: pipeline.stage.<stageName>.<category>
+      return `pipeline.stage.${stage}.${category}`;
+    } else {
+      // General topic: pipeline.<level>
+      return `pipeline.${level}`;
+    }
+  }
+
+  /**
+   * Check if a topic matches the configured topic filter
+   */
+  private matchesTopicFilter(topic: string): boolean {
+    const filter = this.callbacks?.topicFilter;
+    if (!filter) {
+      return true; // No filter, accept all
+    }
+
+    const filters = Array.isArray(filter) ? filter : [filter];
+
+    for (const pattern of filters) {
+      // Convert wildcard pattern to regex
+      // pipeline.stage.* -> ^pipeline\.stage\.[^.]+$
+      // pipeline.*.error -> ^pipeline\.[^.]+\.error$
+      const regexPattern = pattern
+        .replace(/\./g, "\\.")
+        .replace(/\*/g, "[^.]+");
+      const regex = new RegExp(`^${regexPattern}$`);
+
+      if (regex.test(topic)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * Add a log entry to the circular buffer for batched processing
+   */
+  /**
+   * Map log level to default priority
+   * debug: 2, info: 5, warn: 7, error: 9
+   */
+  private getDefaultPriority(
+    level: "debug" | "info" | "warn" | "error"
+  ): 2 | 5 | 7 | 9 {
+    switch (level) {
+      case "debug":
+        return 2;
+      case "info":
+        return 5;
+      case "warn":
+        return 7;
+      case "error":
+        return 9;
+    }
+  }
+
+  /**
+   * Pool a log entry in the circular buffer for batch delivery
    */
   private poolLog(
     level: "debug" | "info" | "warn" | "error",
     message: string,
     context?: any
   ): void {
-    // If onLogBatch is configured, pool the log in circular buffer
-    if (this.callbacks?.onLogBatch) {
+    const topic = this.generateLogTopic(level, context);
+
+    // If onLogBatch is configured, pool the log in circular buffer (with topic filtering)
+    if (this.callbacks?.onLogBatch && this.matchesTopicFilter(topic)) {
       this.logBuffer.push({
+        topic,
         level,
         message,
         context,
         timestamp: performance.now(),
+        priority: this.getDefaultPriority(level),
       });
     }
 
-    // If onLog is also configured, call it immediately (backwards compatible)
-    if (this.callbacks?.onLog) {
-      this.callbacks.onLog(level, message, context);
+    // If onLog is also configured, call it immediately (backwards compatible, with topic filtering)
+    if (this.callbacks?.onLog && this.matchesTopicFilter(topic)) {
+      this.callbacks.onLog(topic, level, message, context);
     }
   }
 
@@ -148,6 +224,39 @@ class DspProcessor {
   // }
 
   /**
+   * Tap into the pipeline for debugging and inspection
+   * The callback is executed synchronously after processing, allowing you to inspect
+   * intermediate results without modifying the data flow
+   *
+   * @param callback - Function to inspect samples (receives Float32Array view and stage name)
+   * @returns this instance for method chaining
+   *
+   * @example
+   * pipeline
+   *   .MovingAverage({ windowSize: 10 })
+   *   .tap((samples, stage) => console.log(`After ${stage}:`, samples.slice(0, 5)))
+   *   .Rectify()
+   *   .tap((samples) => logger.debug('After rectify:', samples.slice(0, 5)))
+   *   .Rms({ windowSize: 5 });
+   *
+   * @example
+   * // Conditional logging
+   * pipeline
+   *   .MovingAverage({ windowSize: 100 })
+   *   .tap((samples, stage) => {
+   *     const max = Math.max(...samples);
+   *     if (max > THRESHOLD) {
+   *       console.warn(`High amplitude detected at ${stage}: ${max}`);
+   *     }
+   *   });
+   */
+  tap(callback: TapCallback): this {
+    const currentStageName = this.stages.join(" → ") || "start";
+    this.tapCallbacks.push({ stageName: currentStageName, callback });
+    return this;
+  }
+
+  /**
    * Configure pipeline callbacks for monitoring and observability
    * @param callbacks - Object containing callback functions
    * @returns this instance for method chaining
@@ -208,6 +317,18 @@ class DspProcessor {
       // and returns a Promise, so await it here
       // Note: The input buffer is modified in-place for zero-copy performance
       const result = await this.nativeInstance.process(input, opts);
+
+      // Execute tap callbacks for debugging/inspection
+      if (this.tapCallbacks.length > 0) {
+        for (const { stageName, callback } of this.tapCallbacks) {
+          try {
+            callback(result, stageName);
+          } catch (tapError) {
+            // Don't let tap errors break the pipeline
+            console.error(`Tap callback error at ${stageName}:`, tapError);
+          }
+        }
+      }
 
       // Execute onBatch callback (efficient - one call per process)
       if (this.callbacks?.onBatch) {

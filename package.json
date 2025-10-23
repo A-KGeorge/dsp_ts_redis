@@ -4,7 +4,7 @@
   "description": "High-performance DSP library with native C++ acceleration and Redis state persistence",
   "main": "index.js",
   "scripts": {
-    "test": "node --import tsx --test src/ts/__tests__/MovingAverage.test.ts src/ts/__tests__/Rectify.test.ts src/ts/__tests__/RMS.test.ts src/ts/__tests__/Chaining.test.ts src/ts/__tests__/Redis.test.ts src/ts/__tests__/CircularLogBuffer.test.ts",
+    "test": "node --import tsx --test src/ts/__tests__/MovingAverage.test.ts src/ts/__tests__/Rectify.test.ts src/ts/__tests__/RMS.test.ts src/ts/__tests__/Chaining.test.ts src/ts/__tests__/Redis.test.ts src/ts/__tests__/CircularLogBuffer.test.ts src/ts/__tests__/Tap.test.ts",
     "test:watch": "node --import tsx --test --watch src/ts/__tests__/**/*.test.ts",
     "build": "cmake-js compile",
     "build-gyp": "node-gyp rebuild",

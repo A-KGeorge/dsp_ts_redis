@@ -137,7 +137,7 @@ async function monitoringExample() {
     .Rectify({ mode: "full" })
     .Rms({ windowSize: 10 });
 
-  console.log("🎵 Processing audio batches...\n");
+  console.log("Processing audio batches...\n");
 
   // Simulate multiple processing batches (like streaming audio)
   const sampleRate = 44100;
