@@ -76,7 +76,7 @@ namespace dsp::core
         void setState(const std::vector<T> &bufferData, T sumOfSquares);
 
     private:
-        CircularBufferArray<T> buffer;
+        dsp::utils::CircularBufferArray<T> buffer;
         T running_sum_of_squares;
         size_t window_size;
     };

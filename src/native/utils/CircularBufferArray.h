@@ -2,45 +2,48 @@
 
 #include <vector>
 
-// CircularBufferArray.h
-template <typename T>
-
-class CircularBufferArray
+namespace dsp::utils
 {
-public:
-    // constructors
-    explicit CircularBufferArray(size_t size);
-    CircularBufferArray(const CircularBufferArray &other) = delete;            // disable copy to avoid shallow copy
-    CircularBufferArray &operator=(const CircularBufferArray &other) = delete; // disable copy assignment to avoid shallow copy
 
-    // move semantics
-    CircularBufferArray(CircularBufferArray &&other) noexcept;
-    CircularBufferArray &operator=(CircularBufferArray &&other) noexcept;
+    template <typename T>
 
-    // methods
-    bool push(const T &item);
-    bool pop(T &item) noexcept;
-    void clear() noexcept;
-    void pushOverwrite(const T &item);
+    class CircularBufferArray
+    {
+    public:
+        // constructors
+        explicit CircularBufferArray(size_t size);
+        CircularBufferArray(const CircularBufferArray &other) = delete;            // disable copy to avoid shallow copy
+        CircularBufferArray &operator=(const CircularBufferArray &other) = delete; // disable copy assignment to avoid shallow copy
 
-    // getters
-    size_t getCapacity() const noexcept;
-    size_t getCount() const noexcept;
-    bool isEmpty() const noexcept;
-    bool isFull() const noexcept;
-    T peek() const;
+        // move semantics
+        CircularBufferArray(CircularBufferArray &&other) noexcept;
+        CircularBufferArray &operator=(CircularBufferArray &&other) noexcept;
 
-    // state management
-    std::vector<T> toVector() const;
-    void fromVector(const std::vector<T> &data);
+        // methods
+        bool push(const T &item);
+        bool pop(T &item) noexcept;
+        void clear() noexcept;
+        void pushOverwrite(const T &item);
 
-    // destructor
-    ~CircularBufferArray();
+        // getters
+        size_t getCapacity() const noexcept;
+        size_t getCount() const noexcept;
+        bool isEmpty() const noexcept;
+        bool isFull() const noexcept;
+        T peek() const;
 
-private:
-    T *buffer;
-    size_t head;
-    size_t tail;
-    size_t capacity;
-    size_t count;
-};
+        // state management
+        std::vector<T> toVector() const;
+        void fromVector(const std::vector<T> &data);
+
+        // destructor
+        ~CircularBufferArray();
+
+    private:
+        T *buffer;
+        size_t head;
+        size_t tail;
+        size_t capacity;
+        size_t count;
+    };
+} // namespace dsp::utils

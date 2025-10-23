@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <stdexcept>
 
+using namespace dsp::utils;
+
 // -----------------------------------------------------------------------------
 // Constructor
 // Initializes the circular buffer with a specified size

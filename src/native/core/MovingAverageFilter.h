@@ -73,7 +73,7 @@ namespace dsp::core
         void setState(const std::vector<T> &bufferData, T sum);
 
     private:
-        CircularBufferArray<T> buffer;
+        dsp::utils::CircularBufferArray<T> buffer;
         T running_sum;
         size_t window_size;
     };
