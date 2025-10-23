@@ -4,6 +4,7 @@
     "algorithm": "cpp",
     "limits": "cpp",
     "utility": "cpp",
-    "xutility": "cpp"
+    "xutility": "cpp",
+    "vector": "cpp"
   }
 }
