@@ -22,6 +22,9 @@ export type {
   RectifyParams,
   VarianceParams,
   ZScoreNormalizeParams,
+  MeanAbsoluteValueParams,
+
+  // logging and monitoring interfaces
   PipelineCallbacks,
   LogLevel,
   LogContext,

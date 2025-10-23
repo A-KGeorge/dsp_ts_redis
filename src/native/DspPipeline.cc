@@ -1,10 +1,11 @@
 // src/DspPipeline.cpp
 #include "DspPipeline.h"
-#include "adapters/MovingAverageStage.h"
-#include "adapters/RmsStage.h"
-#include "adapters/RectifyStage.h"
-#include "adapters/VarianceStage.h"
-#include "adapters/ZScoreNormalizeStage.h"
+#include "adapters/MovingAverageStage.h"     // Moving Average method
+#include "adapters/RmsStage.h"               // RMS method
+#include "adapters/RectifyStage.h"           // Rectify method
+#include "adapters/VarianceStage.h"          // Variance method
+#include "adapters/ZScoreNormalizeStage.h"   // Z-Score Normalize method
+#include "adapters/MeanAbsoluteValueStage.h" // Mean Absolute Value method
 
 #include <iostream>
 #include <ctime>
@@ -43,9 +44,11 @@ namespace dsp
 
     /**
      * Initialize the stage factory map with all available stages
+     * This is where the methods get exposed to TypeScript
      */
     void DspPipeline::InitializeStageFactories()
     {
+        // Factory for Moving Average stage
         m_stageFactories["movingAverage"] = [](const Napi::Object &params)
         {
             std::string modeStr = params.Get("mode").As<Napi::String>().Utf8Value();
@@ -64,6 +67,7 @@ namespace dsp
             return std::make_unique<dsp::adapters::MovingAverageStage>(mode, windowSize);
         };
 
+        // Factory for RMS stage
         m_stageFactories["rms"] = [](const Napi::Object &params)
         {
             std::string modeStr = params.Get("mode").As<Napi::String>().Utf8Value();
@@ -82,6 +86,7 @@ namespace dsp
             return std::make_unique<dsp::adapters::RmsStage>(mode, windowSize);
         };
 
+        // Factory for Rectify stage
         m_stageFactories["rectify"] = [](const Napi::Object &params)
         {
             std::string modeStr = params.Get("mode").As<Napi::String>().Utf8Value();
@@ -89,6 +94,7 @@ namespace dsp
             return std::make_unique<dsp::adapters::RectifyStage>(mode);
         };
 
+        // Factory for Variance stage
         m_stageFactories["variance"] = [](const Napi::Object &params)
         {
             std::string modeStr = params.Get("mode").As<Napi::String>().Utf8Value();
@@ -107,6 +113,7 @@ namespace dsp
             return std::make_unique<dsp::adapters::VarianceStage>(mode, windowSize);
         };
 
+        // Factory for zScoreNormalize stage
         m_stageFactories["zScoreNormalize"] = [](const Napi::Object &params)
         {
             std::string modeStr = params.Get("mode").As<Napi::String>().Utf8Value();
@@ -130,6 +137,25 @@ namespace dsp
             }
 
             return std::make_unique<dsp::adapters::ZScoreNormalizeStage>(mode, windowSize, epsilon);
+        };
+
+        // Factory for Mean Absolute Value stage
+        m_stageFactories["meanAbsoluteValue"] = [](const Napi::Object &params)
+        {
+            std::string modeStr = params.Get("mode").As<Napi::String>().Utf8Value();
+            dsp::adapters::MavMode mode = (modeStr == "moving") ? dsp::adapters::MavMode::Moving : dsp::adapters::MavMode::Batch;
+
+            size_t windowSize = 0;
+            if (mode == dsp::adapters::MavMode::Moving)
+            {
+                if (!params.Has("windowSize"))
+                {
+                    throw std::invalid_argument("MeanAbsoluteValue: 'windowSize' is required for 'moving' mode");
+                }
+                windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+            }
+
+            return std::make_unique<dsp::adapters::MeanAbsoluteValueStage>(mode, windowSize);
         };
     }
 

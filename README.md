@@ -54,10 +54,20 @@ graph TB
         PIPELINE["DspPipeline.cc<br/>(Stage Orchestration)"]
 
         subgraph "dsp::core (Pure C++ Algorithms)"
+            CORE_ENGINE["SlidingWindowFilter<br/>(Generic Engine)"]
             CORE_MA["MovingAverageFilter"]
             CORE_RMS["RmsFilter"]
+            CORE_MAV["MovingAbsoluteValueFilter"]
             CORE_VAR["MovingVarianceFilter"]
             CORE_ZSCORE["MovingZScoreFilter"]
+
+            subgraph "Statistical Policies"
+                POLICY_MEAN["MeanPolicy"]
+                POLICY_RMS["RmsPolicy"]
+                POLICY_MAV["MeanAbsoluteValuePolicy"]
+                POLICY_VAR["VariancePolicy"]
+                POLICY_ZSCORE["ZScorePolicy"]
+            end
         end
 
         subgraph "dsp::utils (Data Structures)"
@@ -84,20 +94,33 @@ graph TB
     ADAPTER_VAR --> CORE_VAR
     ADAPTER_ZSCORE --> CORE_ZSCORE
 
-    CORE_MA --> CIRCULAR
-    CORE_RMS --> CIRCULAR
-    CORE_VAR --> CIRCULAR
-    CORE_ZSCORE --> CIRCULAR
+    CORE_MA --> CORE_ENGINE
+    CORE_RMS --> CORE_ENGINE
+    CORE_MAV --> CORE_ENGINE
+    CORE_VAR --> CORE_ENGINE
+    CORE_ZSCORE --> CORE_ENGINE
+
+    CORE_ENGINE --> POLICY_MEAN
+    CORE_ENGINE --> POLICY_RMS
+    CORE_ENGINE --> POLICY_MAV
+    CORE_ENGINE --> POLICY_VAR
+    CORE_ENGINE --> POLICY_ZSCORE
+
+    CORE_ENGINE --> CIRCULAR
 
     %% Styling
     classDef tsLayer fill:#3178c6,stroke:#235a97,color:#fff
     classDef cppCore fill:#00599c,stroke:#003f6f,color:#fff
+    classDef cppEngine fill:#1a8cff,stroke:#0066cc,color:#fff
+    classDef cppPolicy fill:#66b3ff,stroke:#3399ff,color:#000
     classDef cppAdapter fill:#659ad2,stroke:#4a7ba7,color:#fff
     classDef cppUtils fill:#a8c5e2,stroke:#7a9fbe,color:#000
     classDef external fill:#dc382d,stroke:#a82820,color:#fff
 
     class TS_API,TS_TYPES,TS_UTILS,TS_REDIS tsLayer
-    class CORE_MA,CORE_RMS,CORE_VAR,CORE_ZSCORE cppCore
+    class CORE_MA,CORE_RMS,CORE_MAV,CORE_VAR,CORE_ZSCORE cppCore
+    class CORE_ENGINE cppEngine
+    class POLICY_MEAN,POLICY_RMS,POLICY_MAV,POLICY_VAR,POLICY_ZSCORE cppPolicy
     class ADAPTER_MA,ADAPTER_RMS,ADAPTER_RECT,ADAPTER_VAR,ADAPTER_ZSCORE cppAdapter
     class CIRCULAR cppUtils
     class REDIS_DB external
@@ -111,19 +134,30 @@ graph TB
 - **`dsp::adapters`**: N-API wrapper classes that expose core algorithms to JavaScript.
 - **`dsp::utils`**: Shared data structures (circular buffers) used by core algorithms.
 
-**2. Layered Design**
+**2. Policy-Based Design (Zero-Cost Abstraction)**
+
+The sliding window filters use **compile-time polymorphism** via template policies:
+
+- **`SlidingWindowFilter<T, Policy>`**: Generic engine handling circular buffer and window logic
+- **Statistical Policies**: Define specific computations (MeanPolicy, RmsPolicy, VariancePolicy, etc.)
+- **Zero overhead**: Compiler inlines policy methods, achieving hand-written performance
+- **Extensibility**: New statistical measures require only a new policy class
+
+Example: `MovingAverageFilter` is a thin wrapper around `SlidingWindowFilter<float, MeanPolicy<float>>`
+
+**3. Layered Design**
 
 - **TypeScript Layer**: User-facing API, type safety, Redis integration
 - **N-API Bridge**: Zero-copy data marshaling between JS and C++
 - **C++ Core**: High-performance DSP algorithms with optimized memory management
 
-**3. State Management**
+**4. State Management**
 
 - Each filter maintains internal state (circular buffers, running sums)
 - Full state serialization to JSON for Redis persistence
 - State validation on deserialization ensures data integrity
 
-**4. Mode Architecture** (MovingAverage, RMS, Variance, ZScoreNormalize)
+**5. Mode Architecture** (MovingAverage, RMS, Variance, ZScoreNormalize)
 
 - **Batch Mode**: Stateless processing, computes over entire input
 - **Moving Mode**: Stateful processing with sliding window continuity
@@ -383,6 +417,71 @@ const result2 = await moving.process(new Float32Array([1, -2, 3, -4, 5]));
 
 - **Batch**: Overall signal power, quality metrics, batch statistics
 - **Moving**: Signal envelope detection, amplitude tracking, power measurement, feature extraction
+
+##### Mean Absolute Value (MAV) Filter
+
+```typescript
+// Batch Mode - Stateless, computes MAV over entire input
+pipeline.MeanAbsoluteValue({ mode: "batch" });
+
+// Moving Mode - Stateful, sliding window with continuity
+pipeline.MeanAbsoluteValue({ mode: "moving", windowSize: number });
+```
+
+Implements an efficient Mean Absolute Value filter with two modes - commonly used in EMG signal analysis for muscle activity quantification.
+
+**Modes:**
+
+| Mode       | Description                    | State     | Output                                     | Use Case                                 |
+| ---------- | ------------------------------ | --------- | ------------------------------------------ | ---------------------------------------- |
+| `"batch"`  | Computes MAV over entire input | Stateless | All samples have same value (MAV of input) | Global activity level, batch analysis    |
+| `"moving"` | Sliding window across samples  | Stateful  | Each sample is MAV of window               | Real-time activity detection, transients |
+
+**Parameters:**
+
+- `mode`: `"batch"` or `"moving"` - determines computation strategy
+- `windowSize`: Number of samples to calculate MAV over **(required for moving mode only)**
+
+**Features:**
+
+- **Batch mode**: O(n) computation, no state between calls
+- **Moving mode**: O(1) per sample with circular buffer and running sum of absolute values
+- Per-channel state for multi-channel EMG processing
+- Full state serialization to Redis
+- Always non-negative output
+- Scale-invariant: MAV(k·x) = k·MAV(x)
+
+**Example:**
+
+```typescript
+// Batch mode: MAV of [1, -2, 3, -4, 5] = (|1| + |-2| + |3| + |-4| + |5|)/5 = 3.0
+const batch = createDspPipeline().MeanAbsoluteValue({ mode: "batch" });
+const result1 = await batch.process(new Float32Array([1, -2, 3, -4, 5]));
+// result1 = [3.0, 3.0, 3.0, 3.0, 3.0]
+
+// Moving mode: Window size 3
+const moving = createDspPipeline().MeanAbsoluteValue({
+  mode: "moving",
+  windowSize: 3,
+});
+const result2 = await moving.process(new Float32Array([1, -2, 3, -4, 5]));
+// result2 = [1.0, 1.5, 2.0, 3.0, 4.0] - sliding window MAV
+```
+
+**Use cases:**
+
+- **EMG Analysis**: Muscle activity quantification, fatigue detection, gesture recognition
+- **Vibration Monitoring**: Equipment health monitoring, anomaly detection
+- **Audio Processing**: Envelope detection, dynamic range analysis
+- **Batch**: Overall signal activity level, quality metrics
+- **Moving**: Real-time transient detection, activity onset/offset detection, prosthetic control
+
+**Mathematical Properties:**
+
+- **Non-negative**: MAV(x) ≥ 0 for all signals
+- **Scale-invariant**: MAV(k·x) = k·MAV(x)
+- **Bounded**: MAV(x) ≤ max(|x|) for any window
+- **Reduces to mean**: For all positive signals, MAV = mean
 
 ##### Rectify Filter
 

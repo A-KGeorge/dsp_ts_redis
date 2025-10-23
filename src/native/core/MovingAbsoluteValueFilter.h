@@ -3,33 +3,32 @@
 #include "Policies.h"
 #include <utility>
 #include <vector>
+#include <stdexcept>
 
 namespace dsp::core
 {
     using dsp::utils::SlidingWindowFilter;
     /**
-     * @brief Implements an efficient Simple Moving Average (SMA) filter.
+     * @brief Implements an efficient Mean Absolute Value (MAV) filter.
      *
      * This class is now a thin wrapper around SlidingWindowFilter
-     * using the MeanPolicy for statistical computation.
+     * using the MeanAbsoluteValuePolicy for statistical computation.
      *
-     * The policy-based design provides:
-     * - Zero-cost abstraction (inlined policy methods)
-     * - Consistent interface across all sliding window filters
-     * - Easy extensibility for new statistical measures
+     * The policy automatically handles the absolute value calculation,
+     * demonstrating the power of policy-based design for complex transformations.
      *
      * @tparam T The numeric type of the samples (e.g., float, double, int).
      */
     template <typename T>
-    class MovingAverageFilter
+    class MovingAbsoluteValueFilter
     {
     public:
         /**
-         * @brief Constructs a new Moving Average Filter.
+         * @brief Constructs a new MAV Filter.
          * @param window_size The number of samples to average over (N).
          */
-        explicit MovingAverageFilter(size_t window_size)
-            : m_filter(window_size, MeanPolicy<T>{})
+        explicit MovingAbsoluteValueFilter(size_t window_size)
+            : m_filter(window_size, MeanAbsoluteValuePolicy<T>{})
         {
             if (window_size == 0)
             {
@@ -38,25 +37,25 @@ namespace dsp::core
         }
 
         // Delete copy constructor and copy assignment
-        MovingAverageFilter(const MovingAverageFilter &) = delete;
-        MovingAverageFilter &operator=(const MovingAverageFilter &) = delete;
+        MovingAbsoluteValueFilter(const MovingAbsoluteValueFilter &) = delete;
+        MovingAbsoluteValueFilter &operator=(const MovingAbsoluteValueFilter &) = delete;
 
         // Enable move semantics
-        MovingAverageFilter(MovingAverageFilter &&) noexcept = default;
-        MovingAverageFilter &operator=(MovingAverageFilter &&) noexcept = default;
+        MovingAbsoluteValueFilter(MovingAbsoluteValueFilter &&) noexcept = default;
+        MovingAbsoluteValueFilter &operator=(MovingAbsoluteValueFilter &&) noexcept = default;
 
         /**
          * @brief Adds a new sample to the filter.
-         * @param newValue The new sample value to add.
-         * @return T The new moving average.
+         * @param newValue The new sample value to add (can be negative).
+         * @return T The new mean absolute value.
          */
         T addSample(T newValue) { return m_filter.addSample(newValue); }
 
         /**
-         * @brief Gets the current moving average.
-         * @return T The average of the samples currently in the buffer.
+         * @brief Gets the current mean absolute value.
+         * @return T The MAV of the samples currently in the buffer.
          */
-        T getAverage() const { return m_filter.getPolicy().getResult(m_filter.getCount()); }
+        T getMav() const { return m_filter.getPolicy().getResult(m_filter.getCount()); }
 
         /**
          * @brief Clears all samples from the filter and resets the sum.
@@ -71,7 +70,8 @@ namespace dsp::core
 
         /**
          * @brief Exports the filter's internal state.
-         * @return A pair containing the buffer contents and running sum.
+         * @return A pair containing the buffer contents (original values)
+         * and the running sum of absolute values.
          */
         std::pair<std::vector<T>, T> getState() const
         {
@@ -80,16 +80,16 @@ namespace dsp::core
 
         /**
          * @brief Restores the filter's internal state.
-         * @param bufferData The buffer contents to restore.
-         * @param sum The running sum to restore.
+         * @param bufferData The buffer contents (original values) to restore.
+         * @param sumOfAbs The running sum of absolute values to restore.
          */
-        void setState(const std::vector<T> &bufferData, T sum)
+        void setState(const std::vector<T> &bufferData, T sumOfAbs)
         {
             m_filter.setBufferContents(bufferData);
-            m_filter.getPolicy().setState(sum);
+            m_filter.getPolicy().setState(sumOfAbs);
         }
 
     private:
-        SlidingWindowFilter<T, MeanPolicy<T>> m_filter;
+        SlidingWindowFilter<T, MeanAbsoluteValuePolicy<T>> m_filter;
     };
 } // namespace dsp::core

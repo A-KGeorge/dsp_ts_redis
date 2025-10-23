@@ -9,6 +9,7 @@ import type {
   RectifyParams,
   VarianceParams,
   ZScoreNormalizeParams,
+  MeanAbsoluteValueParams,
   PipelineCallbacks,
   LogEntry,
   SampleBatch,
@@ -317,11 +318,37 @@ class DspProcessor {
     return this;
   }
 
-  // /**
-  //  * Add a notch filter stage to the pipeline
-  //  * @param freqHz - The frequency to notch out in Hz
-  //  * @returns this instance for method chaining
-  //  */
+  /**
+   * Add a Mean Absolute Value (MAV) stage to the pipeline
+   * Mean Absolute Value computes the average of the absolute values of the samples
+   * @param params - Configuration for the MAV filter
+   * @param params.mode - "batch" for stateless MAV (all samples → single value), "moving" for windowed MAV
+   * @param params.windowSize - Required for "moving" mode, size of the sliding window
+   * @return this instance for method chaining
+   * @example
+   * // Batch MAV (stateless)
+   * pipeline.MeanAbsoluteValue({ mode: "batch" });
+   * @example
+   * // Moving MAV with 50-sample window
+   * pipeline.MeanAbsoluteValue({ mode: "moving", windowSize: 50 });
+   */
+  MeanAbsoluteValue(params: MeanAbsoluteValueParams): this {
+    if (params.mode === "moving") {
+      if (
+        !params.windowSize ||
+        params.windowSize <= 0 ||
+        !Number.isInteger(params.windowSize)
+      ) {
+        throw new TypeError(
+          `Mean Absolute Value: windowSize must be a positive integer for "moving" mode, got ${params.windowSize}`
+        );
+      }
+    }
+    this.nativeInstance.addStage("meanAbsoluteValue", params);
+    this.stages.push(`meanAbsoluteValue:${params.mode}`);
+    return this;
+  }
+
   // addNotchFilter(freqHz: number): this {
   //   this.nativeInstance.addStage("notchFilter", { freqHz });
   //   return this;

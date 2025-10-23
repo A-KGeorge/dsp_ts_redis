@@ -64,6 +64,15 @@ export interface ZScoreNormalizeParams {
 }
 
 /**
+ * Parameters for adding a Mean Absolute Value (MAV) stage
+ */
+export interface MeanAbsoluteValueParams {
+  mode: "batch" | "moving";
+  /** Required only for "moving" mode */
+  windowSize?: number;
+}
+
+/**
  * Tap callback function for inspecting samples at any point in the pipeline
  * @param samples - Float32Array view of the current samples
  * @param stageName - Name of the pipeline stage
