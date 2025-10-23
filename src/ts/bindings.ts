@@ -11,6 +11,7 @@ import type {
   LogEntry,
   SampleBatch,
   TapCallback,
+  PipelineStateSummary,
 } from "./types.js";
 import { CircularLogBuffer } from "./CircularLogBuffer.js";
 
@@ -448,6 +449,35 @@ class DspProcessor {
    */
   clearState(): void {
     this.nativeInstance.clearState();
+  }
+
+  /**
+   * List current pipeline state summary
+   * Returns a lightweight view of the pipeline configuration without full state data.
+   * Useful for debugging, monitoring, and inspecting pipeline structure.
+   *
+   * @returns Object containing pipeline summary with stage info
+   *
+   * @example
+   * const pipeline = createDspPipeline()
+   *   .MovingAverage({ windowSize: 100 })
+   *   .Rectify({ mode: 'full' })
+   *   .Rms({ windowSize: 50 });
+   *
+   * const summary = pipeline.listState();
+   * console.log(summary);
+   * // {
+   * //   stageCount: 3,
+   * //   timestamp: 1761234567,
+   * //   stages: [
+   * //     { index: 0, type: 'movingAverage', windowSize: 100, numChannels: 1, bufferSize: 100, channelCount: 1 },
+   * //     { index: 1, type: 'rectify', mode: 'full', numChannels: 1 },
+   * //     { index: 2, type: 'rms', windowSize: 50, numChannels: 1, bufferSize: 50, channelCount: 1 }
+   * //   ]
+   * // }
+   */
+  listState(): PipelineStateSummary {
+    return this.nativeInstance.listState();
   }
 }
 

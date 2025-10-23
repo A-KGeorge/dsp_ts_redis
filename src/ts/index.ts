@@ -28,6 +28,8 @@ export type {
   LogPriority,
   SampleBatch,
   TapCallback,
+  PipelineStateSummary,
+  StageSummary,
 } from "./types.js";
 export type {
   RouteHandler,

@@ -26,6 +26,7 @@ namespace dsp
                                                                   InstanceMethod("saveState", &DspPipeline::SaveState),
                                                                   InstanceMethod("loadState", &DspPipeline::LoadState),
                                                                   InstanceMethod("clearState", &DspPipeline::ClearState),
+                                                                  InstanceMethod("listState", &DspPipeline::ListState),
                                                               });
 
         exports.Set("DspPipeline", func);
@@ -346,6 +347,76 @@ namespace dsp
         std::cout << "Pipeline state cleared (" << m_stages.size() << " stages reset)" << std::endl;
 
         return env.Undefined();
+    }
+
+    /**
+     * List current pipeline state (summary information)
+     * Returns a simplified view of the pipeline configuration
+     * Useful for debugging and monitoring without parsing full JSON
+     *
+     * Returns: Object with pipeline summary (stage count, types, window sizes, etc.)
+     */
+    Napi::Value DspPipeline::ListState(const Napi::CallbackInfo &info)
+    {
+        Napi::Env env = info.Env();
+        Napi::Object summary = Napi::Object::New(env);
+
+        // Basic pipeline info
+        summary.Set("stageCount", static_cast<uint32_t>(m_stages.size()));
+        summary.Set("timestamp", static_cast<double>(std::time(nullptr)));
+
+        // Create array of stage summaries
+        Napi::Array stagesArray = Napi::Array::New(env, m_stages.size());
+
+        for (size_t i = 0; i < m_stages.size(); ++i)
+        {
+            Napi::Object stageSummary = Napi::Object::New(env);
+
+            // Basic stage info
+            stageSummary.Set("index", static_cast<uint32_t>(i));
+            stageSummary.Set("type", m_stages[i]->getType());
+
+            // Get full state to extract key info
+            Napi::Object fullState = m_stages[i]->serializeState(env);
+
+            // Extract common fields (windowSize, numChannels, mode)
+            if (fullState.Has("windowSize"))
+            {
+                stageSummary.Set("windowSize", fullState.Get("windowSize"));
+            }
+
+            if (fullState.Has("numChannels"))
+            {
+                stageSummary.Set("numChannels", fullState.Get("numChannels"));
+            }
+
+            if (fullState.Has("mode"))
+            {
+                stageSummary.Set("mode", fullState.Get("mode"));
+            }
+
+            // Add buffer occupancy info for stateful filters
+            if (fullState.Has("channels"))
+            {
+                Napi::Array channels = fullState.Get("channels").As<Napi::Array>();
+                if (channels.Length() > 0)
+                {
+                    Napi::Object firstChannel = channels.Get(uint32_t(0)).As<Napi::Object>();
+                    if (firstChannel.Has("buffer"))
+                    {
+                        Napi::Array buffer = firstChannel.Get("buffer").As<Napi::Array>();
+                        stageSummary.Set("bufferSize", buffer.Length());
+                    }
+                }
+                stageSummary.Set("channelCount", channels.Length());
+            }
+
+            stagesArray.Set(static_cast<uint32_t>(i), stageSummary);
+        }
+
+        summary.Set("stages", stagesArray);
+
+        return summary;
     }
 
 } // namespace dsp

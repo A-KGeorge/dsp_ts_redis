@@ -650,6 +650,160 @@ See `src/ts/examples/callbacks/production-topic-router.ts` for comprehensive exa
 
 ---
 
+### Priority-Based Routing (10-Level System)
+
+The library supports a **10-level priority system** for fine-grained log filtering and routing. Each log can be assigned a priority from 1 (lowest) to 10 (highest), with default priorities automatically assigned based on log level.
+
+#### Default Priority Mapping
+
+| Log Level | Priority | Use Case                   |
+| --------- | -------- | -------------------------- |
+| `debug`   | 2        | Development traces         |
+| `info`    | 5        | General information        |
+| `warn`    | 7        | Warnings, potential issues |
+| `error`   | 9        | Critical errors, failures  |
+
+Logs without an explicit priority default to **priority 1**.
+
+#### Basic Priority Filtering
+
+```typescript
+import { createDspPipeline, createTopicRouter } from "dsp-ts-redis";
+import type { LogPriority } from "dsp-ts-redis";
+
+// Route only high-priority logs (priority >= 7) to alerting
+const router = createTopicRouter()
+  .errors(pagerDuty.alert, {
+    minPriority: 7, // Only warnings (7) and errors (9)
+  })
+  .performance(prometheus.record, {
+    minPriority: 5, // Info (5) and above
+    maxPriority: 7, // Exclude critical errors
+  })
+  .build();
+
+const pipeline = createDspPipeline();
+pipeline
+  .pipeline({
+    onLogBatch: (logs) => router.routeBatch(logs),
+  })
+  .MovingAverage({ windowSize: 10 })
+  .Rms({ windowSize: 5 });
+```
+
+#### Custom Priority Assignment
+
+```typescript
+import type { LogEntry, LogPriority } from "dsp-ts-redis";
+
+// Assign custom priorities in your backend handlers
+const router = createTopicRouter()
+  .custom(/^pipeline\.stage\.rms/, async (log: LogEntry) => {
+    // Override priority based on context
+    const priority: LogPriority = log.context?.rmsValue > 100 ? 10 : 5;
+
+    await monitoring.send({
+      ...log,
+      priority,
+      customField: "rms-analysis",
+    });
+  })
+  .build();
+```
+
+#### Multi-Tier Routing by Priority
+
+```typescript
+// Route logs to different backends based on priority tiers
+const router = createTopicRouter()
+  // Critical (9-10): Immediate alerting
+  .custom(/.*/, pagerDuty.alert, "critical-alerts", {
+    minPriority: 9,
+  })
+
+  // High (7-8): Slack notifications
+  .custom(/.*/, slack.notify, "high-priority", {
+    minPriority: 7,
+    maxPriority: 8,
+  })
+
+  // Medium (4-6): Centralized logging
+  .custom(/.*/, loki.send, "medium-priority", {
+    minPriority: 4,
+    maxPriority: 6,
+  })
+
+  // Low (1-3): Debug logs only
+  .custom(/.*/, debugLogger.write, "low-priority", {
+    maxPriority: 3,
+  })
+  .build();
+```
+
+#### Priority with Metrics Tracking
+
+```typescript
+const router = createTopicRouter()
+  .errors(async (log: LogEntry) => {
+    // Track priority distribution
+    metrics.increment("logs.priority", {
+      level: log.level,
+      priority: log.priority ?? 1,
+    });
+
+    // Only alert on high-priority errors
+    if ((log.priority ?? 1) >= 8) {
+      await pagerDuty.alert(log);
+    }
+  })
+  .build();
+```
+
+#### Dynamic Priority Assignment
+
+```typescript
+const router = createTopicRouter()
+  .custom(/^pipeline\.performance/, async (log: LogEntry) => {
+    // Calculate priority based on performance metrics
+    const duration = log.context?.durationMs || 0;
+    const priority: LogPriority =
+      duration > 1000
+        ? 10 // Critical slowdown
+        : duration > 500
+        ? 8 // High latency
+        : duration > 100
+        ? 5 // Normal
+        : 2; // Fast
+
+    await monitoring.send({
+      ...log,
+      priority,
+      severity: priority >= 8 ? "high" : "normal",
+    });
+  })
+  .build();
+```
+
+**Priority Filtering Options:**
+
+| Option        | Type          | Description                      |
+| ------------- | ------------- | -------------------------------- |
+| `minPriority` | `LogPriority` | Minimum priority to route (1-10) |
+| `maxPriority` | `LogPriority` | Maximum priority to route (1-10) |
+
+**Production Benefits:**
+
+- **Fine-grained control**: 10 priority levels for precise filtering
+- **Default mapping**: Automatic priority assignment based on log level
+- **Cost optimization**: Route low-priority logs to cheaper storage
+- **Alert fatigue reduction**: Only high-priority logs trigger pages
+- **Flexible thresholds**: Adjust priority cutoffs without code changes
+- **Type-safe**: `LogPriority` type enforces valid values (1-10)
+
+See `src/ts/examples/callbacks/priority-routing-example.ts` for comprehensive examples.
+
+---
+
 ### Debugging with `.tap()`
 
 Inspect pipeline intermediate results at any point using `.tap()` - a pure TypeScript method (no C++ changes):
@@ -745,6 +899,65 @@ Reset all filter states to initial values:
 pipeline.clearState();
 // All circular buffers cleared, running sums reset
 ```
+
+#### `listState()`
+
+Get a lightweight summary of the pipeline configuration (without full buffer data):
+
+```typescript
+const pipeline = createDspPipeline()
+  .MovingAverage({ windowSize: 100 })
+  .Rectify({ mode: "full" })
+  .Rms({ windowSize: 50 });
+
+// After processing some data
+await pipeline.process(input, { sampleRate: 1000, channels: 1 });
+
+const summary = pipeline.listState();
+console.log(summary);
+// {
+//   stageCount: 3,
+//   timestamp: 1761234567,
+//   stages: [
+//     {
+//       index: 0,
+//       type: 'movingAverage',
+//       windowSize: 100,
+//       numChannels: 1,
+//       bufferSize: 100,
+//       channelCount: 1
+//     },
+//     {
+//       index: 1,
+//       type: 'rectify',
+//       mode: 'full'
+//     },
+//     {
+//       index: 2,
+//       type: 'rms',
+//       windowSize: 50,
+//       numChannels: 1,
+//       bufferSize: 50,
+//       channelCount: 1
+//     }
+//   ]
+// }
+```
+
+**Use Cases:**
+
+- **Monitoring dashboards**: Expose pipeline configuration via HTTP endpoint
+- **Health checks**: Verify pipeline structure and configuration
+- **Debugging**: Quick inspection without parsing full state JSON
+- **Logging**: Log pipeline configuration changes
+- **Size efficiency**: ~17-80% smaller than `saveState()` depending on buffer sizes
+
+**Comparison with `saveState()`:**
+
+| Method        | Use Case                    | Contains Buffer Data | Size    |
+| ------------- | --------------------------- | -------------------- | ------- |
+| `listState()` | Monitoring, debugging       | No                   | Smaller |
+| `saveState()` | Redis persistence, recovery | Yes                  | Larger  |
 
 ---
 
@@ -1050,12 +1263,7 @@ npm run dev            # Watch mode for development
 
 ## 📄 License
 
-MIT © [Your Name]
-
-**Third-party licenses:**
-
-- KissFFT (BSD-3-Clause)
-- Eigen (MPL2)
+MIT © Alan Kochukalam George
 
 ---
 
@@ -1072,8 +1280,6 @@ Inspired by:
 
 - [SciPy](https://scipy.org/) signal processing
 - [librosa](https://librosa.org/) audio analysis
-
----
 
 ---
 

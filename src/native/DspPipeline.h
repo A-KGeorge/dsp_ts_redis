@@ -26,6 +26,7 @@ namespace dsp
         Napi::Value SaveState(const Napi::CallbackInfo &info);
         Napi::Value LoadState(const Napi::CallbackInfo &info);
         Napi::Value ClearState(const Napi::CallbackInfo &info);
+        Napi::Value ListState(const Napi::CallbackInfo &info);
 
         // Initialize the stage factory map
         void InitializeStageFactories();

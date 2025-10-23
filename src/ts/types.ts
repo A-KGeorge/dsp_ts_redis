@@ -189,3 +189,36 @@ export interface PipelineCallbacks {
    */
   topicFilter?: string | string[];
 }
+
+/**
+ * Summary information for a single pipeline stage
+ */
+export interface StageSummary {
+  /** Stage index in the pipeline */
+  index: number;
+  /** Stage type (e.g., 'movingAverage', 'rms', 'rectify') */
+  type: string;
+  /** Window size for stateful filters (if applicable) */
+  windowSize?: number;
+  /** Number of channels (if applicable) */
+  numChannels?: number;
+  /** Rectification mode for rectify stage (if applicable) */
+  mode?: "full" | "half";
+  /** Buffer size for stateful filters (if applicable) */
+  bufferSize?: number;
+  /** Number of channels with state (if applicable) */
+  channelCount?: number;
+}
+
+/**
+ * Pipeline state summary (lightweight view without full buffer data)
+ * Useful for debugging and monitoring pipeline structure
+ */
+export interface PipelineStateSummary {
+  /** Total number of stages in the pipeline */
+  stageCount: number;
+  /** Timestamp when the summary was generated */
+  timestamp: number;
+  /** Array of stage summaries */
+  stages: StageSummary[];
+}
