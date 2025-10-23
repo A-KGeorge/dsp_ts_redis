@@ -246,6 +246,9 @@ CircularBufferArray<T>::~CircularBufferArray()
 }
 
 // Explicit template instantiation for common types
-template class CircularBufferArray<int>;
-template class CircularBufferArray<float>;
-template class CircularBufferArray<double>;
+namespace dsp::utils
+{
+    template class CircularBufferArray<int>;
+    template class CircularBufferArray<float>;
+    template class CircularBufferArray<double>;
+}

@@ -112,5 +112,8 @@ void MovingZScoreFilter<T>::setState(const std::vector<T> &bufferData, T sum, T 
 }
 
 // Explicit template instantiation for common types
-template class dsp::core::MovingZScoreFilter<float>;
-template class dsp::core::MovingZScoreFilter<double>;
+namespace dsp::core
+{
+    template class MovingZScoreFilter<float>;
+    template class MovingZScoreFilter<double>;
+}

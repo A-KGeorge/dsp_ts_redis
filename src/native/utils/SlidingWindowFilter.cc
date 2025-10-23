@@ -134,27 +134,30 @@ const Policy &SlidingWindowFilter<T, Policy>::getPolicy() const
 // Explicit template instantiations
 // Instantiate all Policy combinations we use
 // -----------------------------------------------------------------------------
-using namespace dsp::core;
+namespace dsp::utils
+{
+    using namespace dsp::core;
 
-// MeanPolicy instantiations
-template class SlidingWindowFilter<int, MeanPolicy<int>>;
-template class SlidingWindowFilter<float, MeanPolicy<float>>;
-template class SlidingWindowFilter<double, MeanPolicy<double>>;
+    // MeanPolicy instantiations
+    template class SlidingWindowFilter<int, MeanPolicy<int>>;
+    template class SlidingWindowFilter<float, MeanPolicy<float>>;
+    template class SlidingWindowFilter<double, MeanPolicy<double>>;
 
-// RmsPolicy instantiations
-template class SlidingWindowFilter<int, RmsPolicy<int>>;
-template class SlidingWindowFilter<float, RmsPolicy<float>>;
-template class SlidingWindowFilter<double, RmsPolicy<double>>;
+    // RmsPolicy instantiations
+    template class SlidingWindowFilter<int, RmsPolicy<int>>;
+    template class SlidingWindowFilter<float, RmsPolicy<float>>;
+    template class SlidingWindowFilter<double, RmsPolicy<double>>;
 
-// MeanAbsoluteValuePolicy instantiations
-template class SlidingWindowFilter<float, MeanAbsoluteValuePolicy<float>>;
-template class SlidingWindowFilter<double, MeanAbsoluteValuePolicy<double>>;
+    // MeanAbsoluteValuePolicy instantiations
+    template class SlidingWindowFilter<float, MeanAbsoluteValuePolicy<float>>;
+    template class SlidingWindowFilter<double, MeanAbsoluteValuePolicy<double>>;
 
-// VariancePolicy instantiations
-template class SlidingWindowFilter<int, VariancePolicy<int>>;
-template class SlidingWindowFilter<float, VariancePolicy<float>>;
-template class SlidingWindowFilter<double, VariancePolicy<double>>;
+    // VariancePolicy instantiations
+    template class SlidingWindowFilter<int, VariancePolicy<int>>;
+    template class SlidingWindowFilter<float, VariancePolicy<float>>;
+    template class SlidingWindowFilter<double, VariancePolicy<double>>;
 
-// Note: ZScorePolicy is NOT instantiated here because it has a different interface
-// (getResult takes 2 parameters: currentValue and count, not just count)
-// MovingZScoreFilter doesn't use SlidingWindowFilter template
+    // Note: ZScorePolicy is NOT instantiated here because it has a different interface
+    // (getResult takes 2 parameters: currentValue and count, not just count)
+    // MovingZScoreFilter doesn't use SlidingWindowFilter template
+}

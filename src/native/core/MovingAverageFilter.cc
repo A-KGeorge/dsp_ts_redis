@@ -10,6 +10,9 @@
 #include "MovingAverageFilter.h"
 
 // Explicit template instantiation for common types
-template class dsp::core::MovingAverageFilter<int>;
-template class dsp::core::MovingAverageFilter<float>;
-template class dsp::core::MovingAverageFilter<double>;
+namespace dsp::core
+{
+    template class MovingAverageFilter<int>;
+    template class MovingAverageFilter<float>;
+    template class MovingAverageFilter<double>;
+}

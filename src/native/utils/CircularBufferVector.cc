@@ -137,6 +137,9 @@ T CircularBufferVector<T>::peek() const
 }
 
 // Explicit template instantiation for common types
-template class CircularBufferVector<int>;
-template class CircularBufferVector<float>;
-template class CircularBufferVector<double>;
+namespace dsp::utils
+{
+    template class CircularBufferVector<int>;
+    template class CircularBufferVector<float>;
+    template class CircularBufferVector<double>;
+}

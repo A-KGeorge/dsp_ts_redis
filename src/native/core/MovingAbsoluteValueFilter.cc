@@ -10,5 +10,8 @@
 #include "MovingAbsoluteValueFilter.h"
 
 // Explicit template instantiation for common types
-template class dsp::core::MovingAbsoluteValueFilter<float>;
-template class dsp::core::MovingAbsoluteValueFilter<double>;
+namespace dsp::core
+{
+    template class MovingAbsoluteValueFilter<float>;
+    template class MovingAbsoluteValueFilter<double>;
+}

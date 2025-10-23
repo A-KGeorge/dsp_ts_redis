@@ -10,6 +10,9 @@
 #include "RmsFilter.h"
 
 // Explicit template instantiation for common types
-template class dsp::core::RmsFilter<int>;
-template class dsp::core::RmsFilter<float>;
-template class dsp::core::RmsFilter<double>;
+namespace dsp::core
+{
+    template class RmsFilter<int>;
+    template class RmsFilter<float>;
+    template class RmsFilter<double>;
+}

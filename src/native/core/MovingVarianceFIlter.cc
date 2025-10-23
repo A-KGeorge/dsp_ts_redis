@@ -114,6 +114,9 @@ void MovingVarianceFilter<T>::setState(const std::vector<T> &bufferData, T sum, 
 }
 
 // Explicit template instantiation for common types
-template class dsp::core::MovingVarianceFilter<int>;
-template class dsp::core::MovingVarianceFilter<float>;
-template class dsp::core::MovingVarianceFilter<double>;
+namespace dsp::core
+{
+    template class MovingVarianceFilter<int>;
+    template class MovingVarianceFilter<float>;
+    template class MovingVarianceFilter<double>;
+}
