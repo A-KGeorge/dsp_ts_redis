@@ -78,12 +78,12 @@ graph TB
     PIPELINE --> ADAPTER_RECT
     PIPELINE --> ADAPTER_VAR
     PIPELINE --> ADAPTER_ZSCORE
-    
+
     ADAPTER_MA --> CORE_MA
     ADAPTER_RMS --> CORE_RMS
     ADAPTER_VAR --> CORE_VAR
     ADAPTER_ZSCORE --> CORE_ZSCORE
-    
+
     CORE_MA --> CIRCULAR
     CORE_RMS --> CIRCULAR
     CORE_VAR --> CIRCULAR
@@ -106,25 +106,30 @@ graph TB
 ### Key Architectural Principles
 
 **1. Namespace Separation**
+
 - **`dsp::core`**: Pure C++ algorithms with no Node.js dependencies. Reusable in other C++ projects.
 - **`dsp::adapters`**: N-API wrapper classes that expose core algorithms to JavaScript.
 - **`dsp::utils`**: Shared data structures (circular buffers) used by core algorithms.
 
 **2. Layered Design**
+
 - **TypeScript Layer**: User-facing API, type safety, Redis integration
 - **N-API Bridge**: Zero-copy data marshaling between JS and C++
 - **C++ Core**: High-performance DSP algorithms with optimized memory management
 
 **3. State Management**
+
 - Each filter maintains internal state (circular buffers, running sums)
 - Full state serialization to JSON for Redis persistence
 - State validation on deserialization ensures data integrity
 
 **4. Mode Architecture** (MovingAverage, RMS, Variance, ZScoreNormalize)
+
 - **Batch Mode**: Stateless processing, computes over entire input
 - **Moving Mode**: Stateful processing with sliding window continuity
 
 This separation enables:
+
 - ✅ Unit testing of C++ algorithms independently
 - ✅ Reuse of core DSP code in other projects
 - ✅ Type-safe TypeScript API with IntelliSense
