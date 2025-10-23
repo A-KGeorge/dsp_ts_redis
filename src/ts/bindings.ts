@@ -8,7 +8,10 @@ import type {
   RmsParams,
   RectifyParams,
   PipelineCallbacks,
+  LogEntry,
+  SampleBatch,
 } from "./types.js";
+import { CircularLogBuffer } from "./CircularLogBuffer.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -53,8 +56,47 @@ if (!DspAddon) {
 class DspProcessor {
   private stages: string[] = [];
   private callbacks?: PipelineCallbacks;
+  private logBuffer: CircularLogBuffer;
 
-  constructor(private nativeInstance: any) {}
+  constructor(private nativeInstance: any) {
+    // Initialize circular buffer with capacity for typical log volume
+    // (2-3 logs per process call, supports bursts up to 32)
+    this.logBuffer = new CircularLogBuffer(32);
+  }
+
+  /**
+   * Add a log entry to the circular buffer for batched processing
+   */
+  private poolLog(
+    level: "debug" | "info" | "warn" | "error",
+    message: string,
+    context?: any
+  ): void {
+    // If onLogBatch is configured, pool the log in circular buffer
+    if (this.callbacks?.onLogBatch) {
+      this.logBuffer.push({
+        level,
+        message,
+        context,
+        timestamp: performance.now(),
+      });
+    }
+
+    // If onLog is also configured, call it immediately (backwards compatible)
+    if (this.callbacks?.onLog) {
+      this.callbacks.onLog(level, message, context);
+    }
+  }
+
+  /**
+   * Flush all pooled logs from circular buffer to the onLogBatch callback
+   */
+  private flushLogs(): void {
+    if (this.callbacks?.onLogBatch && this.logBuffer.hasEntries()) {
+      const logs = this.logBuffer.flush();
+      this.callbacks.onLogBatch(logs);
+    }
+  }
 
   /**
    * Add a moving average filter stage to the pipeline
@@ -155,21 +197,31 @@ class DspProcessor {
     const startTime = performance.now();
 
     try {
-      // Log processing start
-      if (this.callbacks?.onLog) {
-        this.callbacks.onLog("debug", "Starting pipeline processing", {
-          sampleCount: input.length,
-          channels: opts.channels,
-          stages: this.stages.length,
-        });
-      }
+      // Pool the start log
+      this.poolLog("debug", "Starting pipeline processing", {
+        sampleCount: input.length,
+        channels: opts.channels,
+        stages: this.stages.length,
+      });
 
       // The native process method now uses Napi::AsyncWorker
       // and returns a Promise, so await it here
       // Note: The input buffer is modified in-place for zero-copy performance
       const result = await this.nativeInstance.process(input, opts);
 
-      // Execute onSample callbacks if provided
+      // Execute onBatch callback (efficient - one call per process)
+      if (this.callbacks?.onBatch) {
+        const stageName = this.stages.join(" → ") || "pipeline";
+        const batch: SampleBatch = {
+          stage: stageName,
+          samples: result,
+          startIndex: 0,
+          count: result.length,
+        };
+        this.callbacks.onBatch(batch);
+      }
+
+      // Execute onSample callbacks if provided (LEGACY - expensive)
       // WARNING: This can be expensive for large buffers
       if (this.callbacks?.onSample) {
         const stageName = this.stages.join(" → ") || "pipeline";
@@ -185,14 +237,15 @@ class DspProcessor {
         this.callbacks.onStageComplete(pipelineName, duration);
       }
 
-      // Log completion
-      if (this.callbacks?.onLog) {
-        const duration = performance.now() - startTime;
-        this.callbacks.onLog("info", "Pipeline processing completed", {
-          durationMs: duration,
-          sampleCount: result.length,
-        });
-      }
+      // Pool the completion log
+      const duration = performance.now() - startTime;
+      this.poolLog("info", "Pipeline processing completed", {
+        durationMs: duration,
+        sampleCount: result.length,
+      });
+
+      // Flush all pooled logs at the end
+      this.flushLogs();
 
       return result;
     } catch (error) {
@@ -204,13 +257,14 @@ class DspProcessor {
         this.callbacks.onError(pipelineName, err);
       }
 
-      // Log error
-      if (this.callbacks?.onLog) {
-        this.callbacks.onLog("error", "Pipeline processing failed", {
-          error: err.message,
-          stack: err.stack,
-        });
-      }
+      // Pool the error log
+      this.poolLog("error", "Pipeline processing failed", {
+        error: err.message,
+        stack: err.stack,
+      });
+
+      // Flush logs even on error
+      this.flushLogs();
 
       throw error;
     }

@@ -51,16 +51,45 @@ export interface LogContext {
 }
 
 /**
+ * A single log entry with timestamp
+ */
+export interface LogEntry {
+  level: LogLevel;
+  message: string;
+  context?: LogContext;
+  timestamp: number;
+}
+
+/**
+ * Batch of samples with metadata for efficient callback processing
+ */
+export interface SampleBatch {
+  stage: string;
+  samples: Float32Array;
+  startIndex: number;
+  count: number;
+}
+
+/**
  * Pipeline callback functions for monitoring and observability
  */
 export interface PipelineCallbacks {
   /**
    * Called for each sample after processing (use sparingly for performance)
+   * WARNING: This loops through every sample, which can be millions of calls
+   * Consider using onBatch instead for better performance
    * @param value - The processed sample value
    * @param index - Sample index in the buffer
    * @param stage - Name of the current stage
    */
   onSample?: (value: number, index: number, stage: string) => void;
+
+  /**
+   * Called with batches of processed samples (more efficient than onSample)
+   * Samples are provided as a view into the result buffer
+   * @param batch - Contains stage name, sample data, start index, and count
+   */
+  onBatch?: (batch: SampleBatch) => void;
 
   /**
    * Called after each stage completes processing
@@ -77,10 +106,18 @@ export interface PipelineCallbacks {
   onError?: (stage: string, error: Error) => void;
 
   /**
-   * Called for logging events during pipeline execution
+   * Called for each logging event during pipeline execution
+   * Consider using onLogBatch for better performance with frequent logging
    * @param level - Log severity level
    * @param message - Log message
    * @param context - Additional context information
    */
   onLog?: (level: LogLevel, message: string, context?: LogContext) => void;
+
+  /**
+   * Called with batched log messages (more efficient than onLog)
+   * Logs are pooled during processing and flushed at the end
+   * @param logs - Array of log entries with timestamps
+   */
+  onLogBatch?: (logs: LogEntry[]) => void;
 }

@@ -9,4 +9,6 @@ export type {
   PipelineCallbacks,
   LogLevel,
   LogContext,
+  LogEntry,
+  SampleBatch,
 } from "./types.js";

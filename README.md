@@ -304,7 +304,9 @@ See the [project roadmap](./ROADMAP.md) for more details.
 
 ### Pipeline Callbacks (Monitoring & Observability)
 
-Configure callbacks for monitoring, alerting, and observability:
+Configure callbacks for monitoring, alerting, and observability. The library supports both **individual** and **pooled/batched** callbacks:
+
+#### Basic Usage
 
 ```typescript
 import { createDspPipeline } from "dsp-ts-redis";
@@ -328,7 +330,7 @@ const callbacks: PipelineCallbacks = {
     logger.error(`Stage ${stage} failed`, error);
   },
 
-  // Structured logging
+  // Structured logging (called immediately for each log)
   onLog: (level, msg, context) => {
     if (level === "debug") return; // Filter debug logs
     console.log(`[${level}] ${msg}`, context);
@@ -343,14 +345,66 @@ const pipeline = createDspPipeline()
   .Rms({ windowSize: 5 });
 ```
 
+#### Pooled/Batched Callbacks (Better Performance)
+
+For high-throughput scenarios, use **pooled callbacks** to reduce overhead:
+
+```typescript
+const callbacks: PipelineCallbacks = {
+  // Process samples in batches (more efficient than onSample)
+  onBatch: (batch) => {
+    console.log(`Stage: ${batch.stage}`);
+    console.log(`Samples: ${batch.count}`);
+
+    // Process entire batch efficiently (SIMD-friendly)
+    for (let i = 0; i < batch.samples.length; i++) {
+      if (batch.samples[i] > THRESHOLD) {
+        triggerAlert(batch.startIndex + i, batch.stage);
+      }
+    }
+  },
+
+  // Receive all logs at once (pooled during processing)
+  onLogBatch: (logs) => {
+    // Send all logs to external system in one request
+    await loggingService.sendBatch(
+      logs.map((log) => ({
+        level: log.level,
+        message: log.message,
+        timestamp: log.timestamp,
+        ...log.context,
+      }))
+    );
+  },
+
+  onStageComplete: (stage, durationMs) => {
+    metrics.record(`dsp.${stage}.duration`, durationMs);
+  },
+};
+```
+
+**When to Use What:**
+
+| Callback Type     | Best For                                                      | Performance Impact                |
+| ----------------- | ------------------------------------------------------------- | --------------------------------- |
+| `onSample`        | Peak detection, threshold alerts, individual value monitoring | ⚠️ HIGH (N calls for N samples)   |
+| `onBatch`         | Batch aggregation, efficient sample processing                | ✅ LOW (1 call per process)       |
+| `onLog`           | Real-time logging, immediate output                           | ⚠️ MEDIUM (2-3 calls per process) |
+| `onLogBatch`      | External logging services, log aggregation                    | ✅ LOW (1 call per process)       |
+| `onStageComplete` | Performance metrics, timing                                   | ✅ MINIMAL                        |
+| `onError`         | Error handling                                                | ✅ MINIMAL (only on error)        |
+
 **Performance Notes:**
 
-- **`onSample`**: Called for every sample. Use sparingly for large buffers (e.g., only for peak detection)
-- **`onStageComplete`**: Minimal overhead, ideal for performance monitoring
-- **`onError`**: Only called on errors, no performance impact
-- **`onLog`**: Filter by log level to control verbosity
+- **Logs are pooled using a circular buffer**: When `onLogBatch` is configured, logs accumulate in a fixed-size circular buffer (capacity: 32) during processing and flush at the end
+  - **Fixed memory footprint**: No array reallocations or GC pressure
+  - **Cache-friendly**: Predictable memory access patterns
+  - **Burst handling**: Gracefully handles high-frequency logging by overwriting oldest entries
+- **Both callbacks work together**: You can use `onLog` AND `onLogBatch` simultaneously (backwards compatible)
+- **Sample callbacks**: `onSample` loops through millions of samples; use `onBatch` for better throughput
+- **I/O intensive**: Pooled callbacks shine when doing network/disk I/O (e.g., sending to external logging services)
 
-See `src/ts/examples/callbacks/` for complete examples.
+See `src/ts/examples/callbacks/` for complete examples including performance comparisons.
 
 ---
 
