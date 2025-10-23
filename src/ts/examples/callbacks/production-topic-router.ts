@@ -60,8 +60,8 @@ console.log("1. Builder Pattern (Recommended)\n");
     .pipeline({
       onLogBatch: (logs) => router.routeBatch(logs),
     })
-    .MovingAverage({ windowSize: 3 })
-    .Rms({ windowSize: 5 });
+    .MovingAverage({ mode: "moving", windowSize: 3 })
+    .Rms({ mode: "moving", windowSize: 5 });
 
   const samples = new Float32Array([1, -2, 3, -4, 5]);
   await pipeline.process(samples, { sampleRate: 1000 });
@@ -91,7 +91,7 @@ console.log("2. Manual Route Configuration\n");
     .pipeline({
       onLogBatch: (logs) => router.routeBatch(logs),
     })
-    .MovingAverage({ windowSize: 3 });
+    .MovingAverage({ mode: "moving", windowSize: 3 });
 
   const samples = new Float32Array([1, 2, 3]);
   await pipeline.process(samples, { sampleRate: 1000 });
@@ -116,7 +116,7 @@ console.log("3. Multi-Backend Routing (Fan-Out)\n");
     .pipeline({
       onLogBatch: (logs) => router.routeBatch(logs),
     })
-    .MovingAverage({ windowSize: 3 });
+    .MovingAverage({ mode: "moving", windowSize: 3 });
 
   const samples = new Float32Array([1, 2, 3]);
   await pipeline.process(samples, { sampleRate: 1000 });
@@ -143,8 +143,8 @@ console.log("4. Stage-Specific Routing\n");
     .pipeline({
       onLogBatch: (logs) => router.routeBatch(logs),
     })
-    .MovingAverage({ windowSize: 3 })
-    .Rms({ windowSize: 5 });
+    .MovingAverage({ mode: "moving", windowSize: 3 })
+    .Rms({ mode: "moving", windowSize: 5 });
 
   const samples = new Float32Array([1, -2, 3, -4, 5]);
   await pipeline.process(samples, { sampleRate: 1000 });
@@ -189,9 +189,9 @@ console.log("5. Real-World Production Pattern\n");
     .pipeline({
       onLogBatch: (logs) => router.routeBatch(logs),
     })
-    .MovingAverage({ windowSize: 10 })
+    .MovingAverage({ mode: "moving", windowSize: 10 })
     .Rectify()
-    .Rms({ windowSize: 5 });
+    .Rms({ mode: "moving", windowSize: 5 });
 
   const samples = new Float32Array(100).map(() => Math.random() * 10 - 5);
   await pipeline.process(samples, { sampleRate: 48000 });

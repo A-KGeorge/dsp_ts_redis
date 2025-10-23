@@ -21,7 +21,115 @@ A modern DSP library built for Node.js backends processing real-time biosignals,
 - 🎯 **Zero-Copy Processing** – Direct TypedArray manipulation for minimal overhead
 - 📊 **Multi-Channel Support** – Process multi-channel signals (EMG, EEG, audio) with independent filter states per channel
 - ⚡ **Async Processing** – Background thread processing to avoid blocking the Node.js event loop
-- � **Crash Recovery** – Resume processing from exact state after service restarts
+- 🛡️ **Crash Recovery** – Resume processing from exact state after service restarts
+
+---
+
+## 🏗️ Architecture
+
+The library uses a layered architecture with clear separation between TypeScript and C++ components:
+
+```mermaid
+graph TB
+    subgraph "TypeScript Layer (src/ts/)"
+        TS_API["TypeScript API<br/>bindings.ts"]
+        TS_TYPES["Type Definitions<br/>types.ts"]
+        TS_UTILS["Utilities<br/>CircularLogBuffer, TopicRouter"]
+        TS_REDIS["Redis Backend<br/>backends.ts"]
+    end
+
+    subgraph "N-API Bridge Layer"
+        NAPI["Node-API Bindings<br/>(native module)"]
+    end
+
+    subgraph "C++ Layer (src/native/)"
+        subgraph "dsp::adapters (N-API Adapters)"
+            ADAPTER_MA["MovingAverageStage.h"]
+            ADAPTER_RMS["RmsStage.h"]
+            ADAPTER_RECT["RectifyStage.h"]
+            ADAPTER_VAR["VarianceStage.h"]
+            ADAPTER_ZSCORE["ZScoreNormalizeStage.h"]
+        end
+
+        PIPELINE["DspPipeline.cc<br/>(Stage Orchestration)"]
+
+        subgraph "dsp::core (Pure C++ Algorithms)"
+            CORE_MA["MovingAverageFilter"]
+            CORE_RMS["RmsFilter"]
+            CORE_VAR["MovingVarianceFilter"]
+            CORE_ZSCORE["MovingZScoreFilter"]
+        end
+
+        subgraph "dsp::utils (Data Structures)"
+            CIRCULAR["CircularBuffer<br/>(Array & Vector)"]
+        end
+    end
+
+    subgraph "External Services"
+        REDIS_DB[("Redis<br/>(State Persistence)")]
+    end
+
+    %% Connections
+    TS_API --> NAPI
+    TS_REDIS --> REDIS_DB
+    NAPI --> PIPELINE
+    PIPELINE --> ADAPTER_MA
+    PIPELINE --> ADAPTER_RMS
+    PIPELINE --> ADAPTER_RECT
+    PIPELINE --> ADAPTER_VAR
+    PIPELINE --> ADAPTER_ZSCORE
+    
+    ADAPTER_MA --> CORE_MA
+    ADAPTER_RMS --> CORE_RMS
+    ADAPTER_VAR --> CORE_VAR
+    ADAPTER_ZSCORE --> CORE_ZSCORE
+    
+    CORE_MA --> CIRCULAR
+    CORE_RMS --> CIRCULAR
+    CORE_VAR --> CIRCULAR
+    CORE_ZSCORE --> CIRCULAR
+
+    %% Styling
+    classDef tsLayer fill:#3178c6,stroke:#235a97,color:#fff
+    classDef cppCore fill:#00599c,stroke:#003f6f,color:#fff
+    classDef cppAdapter fill:#659ad2,stroke:#4a7ba7,color:#fff
+    classDef cppUtils fill:#a8c5e2,stroke:#7a9fbe,color:#000
+    classDef external fill:#dc382d,stroke:#a82820,color:#fff
+
+    class TS_API,TS_TYPES,TS_UTILS,TS_REDIS tsLayer
+    class CORE_MA,CORE_RMS,CORE_VAR,CORE_ZSCORE cppCore
+    class ADAPTER_MA,ADAPTER_RMS,ADAPTER_RECT,ADAPTER_VAR,ADAPTER_ZSCORE cppAdapter
+    class CIRCULAR cppUtils
+    class REDIS_DB external
+```
+
+### Key Architectural Principles
+
+**1. Namespace Separation**
+- **`dsp::core`**: Pure C++ algorithms with no Node.js dependencies. Reusable in other C++ projects.
+- **`dsp::adapters`**: N-API wrapper classes that expose core algorithms to JavaScript.
+- **`dsp::utils`**: Shared data structures (circular buffers) used by core algorithms.
+
+**2. Layered Design**
+- **TypeScript Layer**: User-facing API, type safety, Redis integration
+- **N-API Bridge**: Zero-copy data marshaling between JS and C++
+- **C++ Core**: High-performance DSP algorithms with optimized memory management
+
+**3. State Management**
+- Each filter maintains internal state (circular buffers, running sums)
+- Full state serialization to JSON for Redis persistence
+- State validation on deserialization ensures data integrity
+
+**4. Mode Architecture** (MovingAverage, RMS, Variance, ZScoreNormalize)
+- **Batch Mode**: Stateless processing, computes over entire input
+- **Moving Mode**: Stateful processing with sliding window continuity
+
+This separation enables:
+- ✅ Unit testing of C++ algorithms independently
+- ✅ Reuse of core DSP code in other projects
+- ✅ Type-safe TypeScript API with IntelliSense
+- ✅ Zero-copy performance through N-API
+- ✅ Distributed processing with Redis state sharing
 
 ---
 
@@ -170,65 +278,106 @@ await pipeline.process(input: Float32Array, options: ProcessOptions);
 ##### Moving Average Filter
 
 ```typescript
-pipeline.MovingAverage({ windowSize: number });
+// Batch Mode - Stateless, computes average over entire input
+pipeline.MovingAverage({ mode: "batch" });
+
+// Moving Mode - Stateful, sliding window with continuity
+pipeline.MovingAverage({ mode: "moving", windowSize: number });
 ```
 
-Implements a simple moving average (SMA) filter using a circular buffer for O(1) average calculation.
+Implements a simple moving average (SMA) filter with two modes:
+
+**Modes:**
+
+| Mode       | Description                        | State     | Output                                      | Use Case                            |
+| ---------- | ---------------------------------- | --------- | ------------------------------------------- | ----------------------------------- |
+| `"batch"`  | Computes average over entire input | Stateless | All samples have same value (mean of input) | Quality metrics, summary statistics |
+| `"moving"` | Sliding window across samples      | Stateful  | Each sample smoothed by window              | Real-time smoothing, trend analysis |
 
 **Parameters:**
 
-- `windowSize`: Number of samples to average over
+- `mode`: `"batch"` or `"moving"` - determines computation strategy
+- `windowSize`: Number of samples to average over **(required for moving mode only)**
 
 **Features:**
 
-- Maintains running sum for optimal performance
-- Circular buffer with efficient memory usage
+- **Batch mode**: O(n) computation, no state between calls
+- **Moving mode**: O(1) per sample with circular buffer and running sum
 - Per-channel state for multi-channel processing
 - Full state serialization to Redis
-
-**Use cases:**
-
-- Signal smoothing and noise reduction
-- Trend analysis
-- Low-pass filtering for real-time data streams
-
-##### RMS (Root Mean Square) Filter
-
-```typescript
-pipeline.Rms({ windowSize: number });
-```
-
-Implements an efficient RMS filter using a circular buffer with running sum of squares for O(1) calculation. Converts negative values to magnitude (always positive output).
-
-**Parameters:**
-
-- `windowSize`: Number of samples to calculate RMS over
-
-**Features:**
-
-- Maintains running sum of squares for optimal performance
-- Circular buffer with efficient memory usage
-- Per-channel state for multi-channel processing
-- Full state serialization to Redis including buffer contents and running sum of squares
-
-**Use cases:**
-
-- Signal envelope detection (amplitude tracking)
-- Power measurement in audio/EMG signals
-- Feature extraction for machine learning
-- Quality metrics for sensor data
 
 **Example:**
 
 ```typescript
-const pipeline = createDspPipeline();
-pipeline.Rms({ windowSize: 20 });
+// Batch mode: Average of [1,2,3,4,5] = 3
+const batch = createDspPipeline().MovingAverage({ mode: "batch" });
+const result1 = await batch.process(new Float32Array([1, 2, 3, 4, 5]));
+// result1 = [3, 3, 3, 3, 3]
 
-// Process amplitude-modulated signal
-const signal = new Float32Array([1, -2, 3, -4, 5]);
-const rms = await pipeline.process(signal, { sampleRate: 1000, channels: 1 });
-console.log(rms); // [1.0, 1.58, 2.16, 2.74, 3.32] - magnitude values
+// Moving mode: Window size 3
+const moving = createDspPipeline().MovingAverage({
+  mode: "moving",
+  windowSize: 3,
+});
+const result2 = await moving.process(new Float32Array([1, 2, 3, 4, 5]));
+// result2 = [1, 1.5, 2, 3, 4] (sliding window averages)
 ```
+
+**Use cases:**
+
+- **Batch**: Quality control metrics, batch statistics, data summarization
+- **Moving**: Signal smoothing, noise reduction, trend analysis, low-pass filtering
+
+##### RMS (Root Mean Square) Filter
+
+```typescript
+// Batch Mode - Stateless, computes RMS over entire input
+pipeline.Rms({ mode: "batch" });
+
+// Moving Mode - Stateful, sliding window with continuity
+pipeline.Rms({ mode: "moving", windowSize: number });
+```
+
+Implements an efficient RMS filter with two modes:
+
+**Modes:**
+
+| Mode       | Description                    | State     | Output                                     | Use Case                            |
+| ---------- | ------------------------------ | --------- | ------------------------------------------ | ----------------------------------- |
+| `"batch"`  | Computes RMS over entire input | Stateless | All samples have same value (RMS of input) | Power measurement, batch analysis   |
+| `"moving"` | Sliding window across samples  | Stateful  | Each sample is RMS of window               | Envelope detection, real-time power |
+
+**Parameters:**
+
+- `mode`: `"batch"` or `"moving"` - determines computation strategy
+- `windowSize`: Number of samples to calculate RMS over **(required for moving mode only)**
+
+**Features:**
+
+- **Batch mode**: O(n) computation, no state between calls
+- **Moving mode**: O(1) per sample with circular buffer and running sum of squares
+- Per-channel state for multi-channel processing
+- Full state serialization to Redis
+- Always positive output (magnitude-based)
+
+**Example:**
+
+```typescript
+// Batch mode: RMS of [1, -2, 3, -4, 5] = sqrt((1² + 4 + 9 + 16 + 25)/5) = 3.31
+const batch = createDspPipeline().Rms({ mode: "batch" });
+const result1 = await batch.process(new Float32Array([1, -2, 3, -4, 5]));
+// result1 = [3.31, 3.31, 3.31, 3.31, 3.31]
+
+// Moving mode: Window size 3
+const moving = createDspPipeline().Rms({ mode: "moving", windowSize: 3 });
+const result2 = await moving.process(new Float32Array([1, -2, 3, -4, 5]));
+// result2 = [1.0, 1.58, 2.16, 3.11, 4.08] - sliding window RMS
+```
+
+**Use cases:**
+
+- **Batch**: Overall signal power, quality metrics, batch statistics
+- **Moving**: Signal envelope detection, amplitude tracking, power measurement, feature extraction
 
 ##### Rectify Filter
 
@@ -289,6 +438,232 @@ emgPipeline
   .Rms({ windowSize: 50 }); // Calculate envelope
 ```
 
+##### Variance Filter
+
+```typescript
+pipeline.Variance(params: { mode: "batch" | "moving"; windowSize?: number });
+```
+
+Implements variance calculation to measure data spread and variability. Supports both stateless batch variance and stateful moving variance with a sliding window.
+
+**Parameters:**
+
+- `mode`: Variance calculation mode
+  - `"batch"`: Stateless - computes variance over entire batch, all output samples contain the same value
+  - `"moving"`: Stateful - computes variance over a sliding window, maintains state across process() calls
+- `windowSize`: Required for `"moving"` mode - size of the sliding window
+
+**Features:**
+
+- **Batch mode**: O(1) space complexity, processes entire batch in two passes
+- **Moving mode**: O(1) per-sample computation using circular buffer with running sums
+- Maintains running sum and running sum of squares for efficient calculation
+- Per-channel state for multi-channel processing
+- Full state serialization to Redis including buffer contents and running values
+- Variance is always non-negative (uses max(0, calculated) to handle floating-point errors)
+
+**Mathematical Note:**
+
+Variance is calculated as: `Var(X) = E[X²] - (E[X])²`
+
+Where:
+
+- `E[X]` is the mean (average) of values
+- `E[X²]` is the mean of squared values
+
+**Use cases:**
+
+- Signal quality monitoring (detect signal stability)
+- Anomaly detection (identify unusual variability)
+- Feature extraction for machine learning (EMG, EEG analysis)
+- Real-time variability tracking in biosignals
+- Data consistency validation in sensor streams
+
+**Examples:**
+
+```typescript
+// Batch variance - stateless, entire batch → single variance value
+const pipeline1 = createDspPipeline();
+pipeline1.Variance({ mode: "batch" });
+
+const data = new Float32Array([1, 2, 3, 4, 5]);
+const output1 = await pipeline1.process(data, {
+  sampleRate: 1000,
+  channels: 1,
+});
+console.log(output1); // [2, 2, 2, 2, 2] - all values are the batch variance
+
+// Moving variance - stateful, sliding window
+const pipeline2 = createDspPipeline();
+pipeline2.Variance({ mode: "moving", windowSize: 3 });
+
+const output2 = await pipeline2.process(data, {
+  sampleRate: 1000,
+  channels: 1,
+});
+console.log(output2);
+// [0, 0.25, 0.67, 0.67, 0.67] - variance evolves as window slides
+// Window: [1] → [1,2] → [1,2,3] → [2,3,4] → [3,4,5]
+
+// EMG variability monitoring pipeline
+const emgPipeline = createDspPipeline()
+  .Rectify({ mode: "full" }) // Convert to magnitude
+  .Variance({ mode: "moving", windowSize: 100 }); // Track variability
+
+// Multi-channel signal quality monitoring
+const qualityPipeline = createDspPipeline().Variance({ mode: "batch" });
+
+const fourChannelData = new Float32Array(4000); // 1000 samples × 4 channels
+const variances = await qualityPipeline.process(fourChannelData, {
+  sampleRate: 2000,
+  channels: 4,
+});
+// Each channel gets its own variance value
+```
+
+**Batch vs Moving Mode:**
+
+| Mode     | State     | Output                        | Use Case                       |
+| -------- | --------- | ----------------------------- | ------------------------------ |
+| `batch`  | Stateless | All samples = single variance | Per-chunk quality assessment   |
+| `moving` | Stateful  | Variance per sample (sliding) | Real-time variability tracking |
+
+**Performance:**
+
+- Batch mode: Two-pass algorithm (sum calculation, then variance), O(n) time
+- Moving mode: Single-pass with circular buffer, O(1) per sample after warmup
+- State persistence includes full circular buffer + running sums (can be large for big windows)
+
+##### Z-Score Normalization Filter
+
+```typescript
+pipeline.ZScoreNormalize(params: {
+  mode: "batch" | "moving";
+  windowSize?: number;
+  epsilon?: number;
+});
+```
+
+Implements Z-Score normalization to standardize data to have mean 0 and standard deviation 1. Supports both stateless batch normalization and stateful moving normalization with a sliding window.
+
+**Z-Score Formula:** `(Value - Mean) / StandardDeviation`
+
+**Parameters:**
+
+- `mode`: Normalization calculation mode
+  - `"batch"`: Stateless - computes mean and stddev over entire batch, normalizes all samples
+  - `"moving"`: Stateful - computes mean and stddev over sliding window, maintains state across process() calls
+- `windowSize`: Required for `"moving"` mode - size of the sliding window
+- `epsilon`: Small value to prevent division by zero when standard deviation is 0 (default: `1e-6`)
+
+**Features:**
+
+- **Batch mode**: Normalizes entire dataset to mean=0, stddev=1 using global statistics
+- **Moving mode**: Adaptive normalization using local window statistics
+- Maintains running sum and running sum of squares for O(1) mean/stddev calculation
+- Per-channel state for multi-channel processing
+- Full state serialization including buffer contents and running values
+- Epsilon handling prevents NaN when processing constant signals
+
+**Use cases:**
+
+- Machine learning preprocessing (feature standardization)
+- Anomaly detection (outlier identification using ±3σ thresholds)
+- Neural network input normalization
+- EEG/EMG signal standardization for multi-channel processing
+- Real-time data stream normalization with adaptive statistics
+- Removing baseline drift and amplitude variations
+
+**Examples:**
+
+```typescript
+// Batch normalization - standardize entire dataset
+const pipeline1 = createDspPipeline();
+pipeline1.ZScoreNormalize({ mode: "batch" });
+
+const data = new Float32Array([10, 20, 30, 40, 50]);
+const output1 = await pipeline1.process(data, {
+  sampleRate: 1000,
+  channels: 1,
+});
+// All samples normalized to mean=0, stddev=1
+// Output: [-1.414, -0.707, 0, 0.707, 1.414] (approximately)
+
+// Moving normalization - adaptive standardization
+const pipeline2 = createDspPipeline();
+pipeline2.ZScoreNormalize({ mode: "moving", windowSize: 50 });
+
+const streamData = new Float32Array(200); // Continuous stream
+const output2 = await pipeline2.process(streamData, {
+  sampleRate: 1000,
+  channels: 1,
+});
+// Each sample normalized using local window statistics
+// Adapts to changes in mean and variance over time
+
+// Anomaly detection with z-score thresholds
+const pipeline3 = createDspPipeline();
+pipeline3.ZScoreNormalize({ mode: "moving", windowSize: 100 });
+
+const sensorData = new Float32Array(500);
+const zScores = await pipeline3.process(sensorData, {
+  sampleRate: 100,
+  channels: 1,
+});
+
+// Detect outliers (z-score > ±3 indicates anomaly)
+const anomalies = [];
+for (let i = 0; i < zScores.length; i++) {
+  if (Math.abs(zScores[i]) > 3.0) {
+    anomalies.push({ index: i, zScore: zScores[i] });
+  }
+}
+
+// Multi-channel EEG normalization
+const eegPipeline = createDspPipeline();
+eegPipeline.ZScoreNormalize({ mode: "moving", windowSize: 128 });
+
+const fourChannelEEG = new Float32Array(2048); // 512 samples × 4 channels
+const normalizedEEG = await eegPipeline.process(fourChannelEEG, {
+  sampleRate: 256,
+  channels: 4,
+});
+// Each EEG channel independently normalized to mean=0, stddev=1
+
+// Custom epsilon for near-constant signals
+const pipeline4 = createDspPipeline();
+pipeline4.ZScoreNormalize({ mode: "batch", epsilon: 0.1 });
+
+const nearConstant = new Float32Array([5.0, 5.001, 4.999, 5.0]);
+const output4 = await pipeline4.process(nearConstant, {
+  sampleRate: 1000,
+  channels: 1,
+});
+// When stddev < epsilon, output is 0 (prevents division by tiny numbers)
+```
+
+**Batch vs Moving Mode:**
+
+| Mode     | State     | Output                                          | Use Case                                            |
+| -------- | --------- | ----------------------------------------------- | --------------------------------------------------- |
+| `batch`  | Stateless | All samples normalized using global mean/stddev | ML preprocessing, dataset standardization           |
+| `moving` | Stateful  | Each sample normalized using local window stats | Real-time anomaly detection, adaptive normalization |
+
+**Performance:**
+
+- Batch mode: Two-pass algorithm (calculate mean, then stddev, then normalize), O(n) time
+- Moving mode: Single-pass with circular buffer, O(1) per sample after warmup
+- Anomaly detection: O(1) threshold comparison after normalization
+- State persistence includes full circular buffer + running sums
+
+**Mathematical Properties:**
+
+- Normalized data has mean = 0 (centered)
+- Normalized data has standard deviation = 1 (scaled)
+- Z-scores > ±3 represent outliers (>99.7% of data within ±3σ in normal distribution)
+- Preserves relative distances and relationships in the data
+- Linear transformation (reversible if original mean/stddev are known)
+
 #### 🚧 Coming Soon
 
 The following filters are planned for future releases:
@@ -296,7 +671,7 @@ The following filters are planned for future releases:
 - **IIR/FIR Filters**: Butterworth, Chebyshev, notch filters
 - **Transform Domain**: FFT, STFT, Hilbert transform
 - **EMG/Biosignal**: Specialized EMG processing stages
-- **Feature Extraction**: Variance, zero-crossing rate, peak detection
+- **Feature Extraction**: Zero-crossing rate, peak detection
 
 See the [project roadmap](./ROADMAP.md) for more details.
 

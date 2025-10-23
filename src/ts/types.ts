@@ -19,14 +19,18 @@ export interface RedisConfig {
  * Parameters for adding a moving average stage
  */
 export interface MovingAverageParams {
-  windowSize: number;
+  mode: "batch" | "moving";
+  /** Required only for "moving" mode */
+  windowSize?: number;
 }
 
 /**
  * Parameters for adding a RMS stage
  */
 export interface RmsParams {
-  windowSize: number;
+  mode: "batch" | "moving";
+  /** Required only for "moving" mode */
+  windowSize?: number;
 }
 
 /**
@@ -34,6 +38,29 @@ export interface RmsParams {
  */
 export interface RectifyParams {
   mode?: "full" | "half"; // Default: "full"
+}
+
+/**
+ * Parameters for adding a variance stage
+ */
+export interface VarianceParams {
+  mode: "batch" | "moving";
+  /** Required only for "moving" mode */
+  windowSize?: number;
+}
+
+/**
+ * Parameters for adding a Z-Score Normalization stage
+ */
+export interface ZScoreNormalizeParams {
+  mode: "batch" | "moving";
+  /** Required only for "moving" mode */
+  windowSize?: number;
+  /**
+   * Small value to prevent division by zero when standard deviation is 0.
+   * @default 1e-6
+   */
+  epsilon?: number;
 }
 
 /**

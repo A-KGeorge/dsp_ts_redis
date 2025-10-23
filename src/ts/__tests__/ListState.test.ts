@@ -5,8 +5,8 @@ import { createDspPipeline } from "../bindings.js";
 describe("listState Method", () => {
   it("should return basic pipeline summary before processing", () => {
     const pipeline = createDspPipeline()
-      .MovingAverage({ windowSize: 10 })
-      .Rms({ windowSize: 5 });
+      .MovingAverage({ mode: "moving", windowSize: 10 })
+      .Rms({ mode: "moving", windowSize: 5 });
 
     const summary = pipeline.listState();
 
@@ -26,7 +26,7 @@ describe("listState Method", () => {
   });
 
   it("should include channel info after processing", async () => {
-    const pipeline = createDspPipeline().MovingAverage({ windowSize: 5 });
+    const pipeline = createDspPipeline().MovingAverage({ mode: "moving", windowSize: 5 });
 
     const input = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     await pipeline.process(input, { sampleRate: 1000, channels: 1 });
@@ -40,8 +40,8 @@ describe("listState Method", () => {
 
   it("should show correct channel count for multi-channel processing", async () => {
     const pipeline = createDspPipeline()
-      .MovingAverage({ windowSize: 10 })
-      .Rms({ windowSize: 5 });
+      .MovingAverage({ mode: "moving", windowSize: 10 })
+      .Rms({ mode: "moving", windowSize: 5 });
 
     // 4-channel interleaved data
     const input = new Float32Array(400).map((_, i) => Math.sin(i * 0.1));
@@ -56,7 +56,7 @@ describe("listState Method", () => {
   it("should include mode for rectify stage", () => {
     const pipeline = createDspPipeline()
       .Rectify({ mode: "half" })
-      .Rms({ windowSize: 10 });
+      .Rms({ mode: "moving", windowSize: 10 });
 
     const summary = pipeline.listState();
 
@@ -65,7 +65,7 @@ describe("listState Method", () => {
   });
 
   it("should not include buffer data (unlike saveState)", async () => {
-    const pipeline = createDspPipeline().MovingAverage({ windowSize: 5 });
+    const pipeline = createDspPipeline().MovingAverage({ mode: "moving", windowSize: 5 });
 
     const input = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     await pipeline.process(input, { sampleRate: 1000, channels: 1 });
@@ -82,8 +82,8 @@ describe("listState Method", () => {
 
   it("should be smaller than saveState", async () => {
     const pipeline = createDspPipeline()
-      .MovingAverage({ windowSize: 100 })
-      .Rms({ windowSize: 50 });
+      .MovingAverage({ mode: "moving", windowSize: 100 })
+      .Rms({ mode: "moving", windowSize: 50 });
 
     const input = new Float32Array(1000).map((_, i) => Math.sin(i * 0.1));
     await pipeline.process(input, { sampleRate: 1000, channels: 1 });
@@ -110,10 +110,10 @@ describe("listState Method", () => {
 
   it("should work with complex pipeline", async () => {
     const pipeline = createDspPipeline()
-      .MovingAverage({ windowSize: 20 })
+      .MovingAverage({ mode: "moving", windowSize: 20 })
       .Rectify({ mode: "full" })
-      .Rms({ windowSize: 10 })
-      .MovingAverage({ windowSize: 5 });
+      .Rms({ mode: "moving", windowSize: 10 })
+      .MovingAverage({ mode: "moving", windowSize: 5 });
 
     const input = new Float32Array(100).map((_, i) => Math.sin(i * 0.1));
     await pipeline.process(input, { sampleRate: 1000, channels: 1 });
@@ -134,7 +134,7 @@ describe("listState Method", () => {
   });
 
   it("should update timestamp on each call", async () => {
-    const pipeline = createDspPipeline().MovingAverage({ windowSize: 5 });
+    const pipeline = createDspPipeline().MovingAverage({ mode: "moving", windowSize: 5 });
 
     const summary1 = pipeline.listState();
     const timestamp1 = summary1.timestamp;

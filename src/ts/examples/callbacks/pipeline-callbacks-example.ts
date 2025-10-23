@@ -82,9 +82,9 @@ async function main() {
   // Create pipeline with callbacks configured
   const pipeline = createDspPipeline()
     .pipeline(callbacks) // Configure callbacks first
-    .MovingAverage({ windowSize: 3 })
+    .MovingAverage({ mode: "moving", windowSize: 3 })
     .Rectify({ mode: "full" })
-    .Rms({ windowSize: 5 });
+    .Rms({ mode: "moving", windowSize: 5 });
 
   // Generate test signal with some peaks
   const sampleRate = 44100;

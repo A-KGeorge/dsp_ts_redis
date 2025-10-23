@@ -10,7 +10,7 @@ console.log("🔍 Pipeline Debugging with .tap()\n");
 // Example 1: Basic inspection
 console.log("Example 1: Basic Inspection");
 const pipeline1 = createDspPipeline()
-  .MovingAverage({ windowSize: 3 })
+  .MovingAverage({ mode: "moving", windowSize: 3 })
   .tap((samples, stage) => {
     console.log(`  After ${stage}:`);
     console.log(
@@ -42,9 +42,9 @@ const THRESHOLD = 0.8;
 let alertCount = 0;
 
 const pipeline2 = createDspPipeline()
-  .MovingAverage({ windowSize: 5 })
+  .MovingAverage({ mode: "moving", windowSize: 5 })
   .Rectify({ mode: "full" })
-  .Rms({ windowSize: 10 })
+  .Rms({ mode: "moving", windowSize: 10 })
   .tap((samples, stage) => {
     const max = Math.max(...samples);
     const avg = samples.reduce((a, b) => a + b, 0) / samples.length;
@@ -85,7 +85,7 @@ const pipeline3 = createDspPipeline()
     };
     stages.push({ name: "raw input", stats });
   })
-  .MovingAverage({ windowSize: 5 })
+  .MovingAverage({ mode: "moving", windowSize: 5 })
   .tap((samples, stage) => {
     const stats = {
       min: Math.min(...samples),
@@ -103,7 +103,7 @@ const pipeline3 = createDspPipeline()
     };
     stages.push({ name: stage, stats });
   })
-  .Rms({ windowSize: 3 })
+  .Rms({ mode: "moving", windowSize: 3 })
   .tap((samples, stage) => {
     const stats = {
       min: Math.min(...samples),
@@ -153,7 +153,7 @@ const logger = {
 };
 
 const pipeline4 = createDspPipeline()
-  .MovingAverage({ windowSize: 10 })
+  .MovingAverage({ mode: "moving", windowSize: 10 })
   .tap((samples, stage) =>
     logger.debug(`Processed ${stage}`, { sampleCount: samples.length })
   )
@@ -166,7 +166,7 @@ const pipeline4 = createDspPipeline()
       logger.info(`${stage} completed successfully`);
     }
   })
-  .Rms({ windowSize: 5 })
+  .Rms({ mode: "moving", windowSize: 5 })
   .tap((samples, stage) => {
     const max = Math.max(...samples);
     logger.debug(`Max RMS value`, { value: max.toFixed(4) });
@@ -182,9 +182,9 @@ const sampleSize = 1000;
 
 // Without tap
 const pipelineNoTap = createDspPipeline()
-  .MovingAverage({ windowSize: 10 })
+  .MovingAverage({ mode: "moving", windowSize: 10 })
   .Rectify()
-  .Rms({ windowSize: 5 });
+  .Rms({ mode: "moving", windowSize: 5 });
 
 const startNoTap = performance.now();
 for (let i = 0; i < iterations; i++) {
@@ -195,11 +195,11 @@ const durationNoTap = performance.now() - startNoTap;
 
 // With tap (minimal work)
 const pipelineWithTap = createDspPipeline()
-  .MovingAverage({ windowSize: 10 })
+  .MovingAverage({ mode: "moving", windowSize: 10 })
   .tap(() => {}) // Empty tap
   .Rectify()
   .tap(() => {}) // Empty tap
-  .Rms({ windowSize: 5 })
+  .Rms({ mode: "moving", windowSize: 5 })
   .tap(() => {}); // Empty tap
 
 const startWithTap = performance.now();

@@ -5,6 +5,8 @@
     "limits": "cpp",
     "utility": "cpp",
     "xutility": "cpp",
-    "vector": "cpp"
+    "vector": "cpp",
+    "numeric": "cpp",
+    "memory": "cpp"
   }
 }

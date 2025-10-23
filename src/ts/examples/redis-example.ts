@@ -36,7 +36,7 @@ async function redisExample(startFresh = false) {
   });
 
   // 3. Build the pipeline
-  pipeline.MovingAverage({ windowSize: 3 });
+  pipeline.MovingAverage({ mode: "moving", windowSize: 3 });
 
   console.log("Pipeline created with moving average filter (window=3)");
 
@@ -77,7 +77,7 @@ async function redisExample(startFresh = false) {
     stateKey: stateKey,
   });
 
-  pipeline2.MovingAverage({ windowSize: 3 });
+  pipeline2.MovingAverage({ mode: "moving", windowSize: 3 });
 
   const restoredState = await redis.get(stateKey);
   if (restoredState) {
@@ -136,7 +136,7 @@ async function streamingExample(startFresh = false) {
     stateKey: stateKey,
   });
 
-  pipeline.MovingAverage({ windowSize: 5 });
+  pipeline.MovingAverage({ mode: "moving", windowSize: 5 });
 
   // Restore state if processing was interrupted
   const savedState = await redis.get(stateKey);

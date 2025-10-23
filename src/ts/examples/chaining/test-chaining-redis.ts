@@ -32,7 +32,7 @@ async function testChainingWithRedis(startFresh = false) {
     stateKey,
   });
 
-  pipeline.MovingAverage({ windowSize: 3 }).Rms({ windowSize: 3 }).Rectify();
+  pipeline.MovingAverage({ mode: "moving", windowSize: 3 }).Rms({ mode: "moving", windowSize: 3 }).Rectify();
 
   console.log("Pipeline: MovingAverage → RMS → Rectify\n");
 
@@ -72,7 +72,7 @@ async function testChainingWithRedis(startFresh = false) {
     stateKey,
   });
 
-  pipeline2.MovingAverage({ windowSize: 3 }).Rms({ windowSize: 3 }).Rectify();
+  pipeline2.MovingAverage({ mode: "moving", windowSize: 3 }).Rms({ mode: "moving", windowSize: 3 }).Rectify();
 
   const restoredState = await redis.get(stateKey);
   if (restoredState) {

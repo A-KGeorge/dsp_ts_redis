@@ -30,7 +30,7 @@ async function testStreamingProcessing() {
   console.log("=== Testing Streaming Data Processing ===\n");
 
   const pipeline = createDspPipeline();
-  pipeline.MovingAverage({ windowSize: 10 }); // Smooth with 10-sample window
+  pipeline.MovingAverage({ mode: "moving", windowSize: 10 }); // Smooth with 10-sample window
 
   console.log("Pipeline created with 10-sample moving average");
   console.log(
@@ -86,7 +86,7 @@ async function testStreamInterruption() {
   console.log("\n\n=== Testing Stream Interruption & Recovery ===\n");
 
   const pipeline = createDspPipeline();
-  pipeline.MovingAverage({ windowSize: 5 });
+  pipeline.MovingAverage({ mode: "moving", windowSize: 5 });
 
   console.log("Processing first part of stream...");
   let chunk1 = new Float32Array([1, 2, 3, 4, 5]);
@@ -119,7 +119,7 @@ async function testStreamInterruption() {
   // Create new pipeline and restore
   console.log("\nCreating new pipeline and restoring state...");
   const pipeline2 = createDspPipeline();
-  pipeline2.MovingAverage({ windowSize: 5 });
+  pipeline2.MovingAverage({ mode: "moving", windowSize: 5 });
   await pipeline2.loadState(savedState);
   console.log("State restored!");
 
@@ -144,7 +144,7 @@ async function testMultiChannelStreaming() {
   console.log("\n\n=== Testing Multi-Channel Streaming ===\n");
 
   const pipeline = createDspPipeline();
-  pipeline.MovingAverage({ windowSize: 3 });
+  pipeline.MovingAverage({ mode: "moving", windowSize: 3 });
 
   console.log("Processing 2-channel interleaved data stream");
   console.log("Format: [ch1_s1, ch2_s1, ch1_s2, ch2_s2, ...]\n");

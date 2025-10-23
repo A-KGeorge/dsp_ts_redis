@@ -6,9 +6,9 @@ console.log("Pipeline State Listing Example\n");
 console.log("1. Simple Pipeline");
 {
   const pipeline = createDspPipeline()
-    .MovingAverage({ windowSize: 100 })
+    .MovingAverage({ mode: "moving", windowSize: 100 })
     .Rectify({ mode: "full" })
-    .Rms({ windowSize: 50 });
+    .Rms({ mode: "moving", windowSize: 50 });
 
   const summary = pipeline.listState();
   console.log("  Pipeline summary:", JSON.stringify(summary, null, 2));
@@ -18,8 +18,8 @@ console.log("1. Simple Pipeline");
 console.log("\n2. Pipeline After Processing (With State)");
 {
   const pipeline = createDspPipeline()
-    .MovingAverage({ windowSize: 10 })
-    .Rms({ windowSize: 5 });
+    .MovingAverage({ mode: "moving", windowSize: 10 })
+    .Rms({ mode: "moving", windowSize: 5 });
 
   // Process some data to populate state
   const input = new Float32Array(50).map((_, i) => Math.sin(i * 0.1));
@@ -46,9 +46,9 @@ console.log("\n2. Pipeline After Processing (With State)");
 console.log("\n3. Multi-Channel Pipeline");
 {
   const pipeline = createDspPipeline()
-    .MovingAverage({ windowSize: 20 })
+    .MovingAverage({ mode: "moving", windowSize: 20 })
     .Rectify()
-    .Rms({ windowSize: 10 });
+    .Rms({ mode: "moving", windowSize: 10 });
 
   // Process 4-channel data
   const input = new Float32Array(400).map((_, i) => Math.sin(i * 0.1));
@@ -65,9 +65,9 @@ console.log("\n3. Multi-Channel Pipeline");
 console.log("\n4. Pipeline Monitoring/Debugging");
 {
   const pipeline = createDspPipeline()
-    .MovingAverage({ windowSize: 100 })
+    .MovingAverage({ mode: "moving", windowSize: 100 })
     .Rectify({ mode: "half" })
-    .Rms({ windowSize: 50 });
+    .Rms({ mode: "moving", windowSize: 50 });
 
   // This could be used in a monitoring endpoint
   const summary = pipeline.listState();
@@ -93,7 +93,7 @@ console.log("\n4. Pipeline Monitoring/Debugging");
 // Example 5: Comparison with saveState()
 console.log("\n5. listState() vs saveState() Comparison");
 {
-  const pipeline = createDspPipeline().MovingAverage({ windowSize: 5 });
+  const pipeline = createDspPipeline().MovingAverage({ mode: "moving", windowSize: 5 });
 
   // Process some data
   const input = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);

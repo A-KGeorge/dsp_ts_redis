@@ -13,7 +13,7 @@ describe("Tap Method", () => {
     let tappedStage = "";
 
     const pipeline = createDspPipeline()
-      .MovingAverage({ windowSize: 3 })
+      .MovingAverage({ mode: "moving", windowSize: 3 })
       .tap((samples, stage) => {
         tapCalled = true;
         tappedSamples = samples;
@@ -25,14 +25,14 @@ describe("Tap Method", () => {
 
     assert.strictEqual(tapCalled, true);
     assert.notStrictEqual(tappedSamples, null);
-    assert.strictEqual(tappedStage, "movingAverage");
+    assert.strictEqual(tappedStage, "movingAverage:moving");
   });
 
   it("should support multiple tap calls in chain", async () => {
     const tapLog: Array<{ stage: string; firstValue: number }> = [];
 
     const pipeline = createDspPipeline()
-      .MovingAverage({ windowSize: 2 })
+      .MovingAverage({ mode: "moving", windowSize: 2 })
       .tap((samples, stage) => {
         tapLog.push({ stage, firstValue: samples[0] });
       })
@@ -40,7 +40,7 @@ describe("Tap Method", () => {
       .tap((samples, stage) => {
         tapLog.push({ stage, firstValue: samples[0] });
       })
-      .Rms({ windowSize: 2 })
+      .Rms({ mode: "moving", windowSize: 2 })
       .tap((samples, stage) => {
         tapLog.push({ stage, firstValue: samples[0] });
       });
@@ -49,14 +49,17 @@ describe("Tap Method", () => {
     await pipeline.process(input, { sampleRate: 1000 });
 
     assert.strictEqual(tapLog.length, 3);
-    assert.strictEqual(tapLog[0].stage, "movingAverage");
-    assert.strictEqual(tapLog[1].stage, "movingAverage → rectify:full");
-    assert.strictEqual(tapLog[2].stage, "movingAverage → rectify:full → rms");
+    assert.strictEqual(tapLog[0].stage, "movingAverage:moving");
+    assert.strictEqual(tapLog[1].stage, "movingAverage:moving → rectify:full");
+    assert.strictEqual(
+      tapLog[2].stage,
+      "movingAverage:moving → rectify:full → rms:moving"
+    );
   });
 
   it("should not modify the data in tap callback", async () => {
     const pipeline = createDspPipeline()
-      .MovingAverage({ windowSize: 2 })
+      .MovingAverage({ mode: "moving", windowSize: 2 })
       .tap((samples) => {
         // Try to modify (should not affect final result since it's after processing)
         samples[0] = 999;
@@ -74,7 +77,7 @@ describe("Tap Method", () => {
     let processCompleted = false;
 
     const pipeline = createDspPipeline()
-      .MovingAverage({ windowSize: 2 })
+      .MovingAverage({ mode: "moving", windowSize: 2 })
       .tap(() => {
         throw new Error("Tap error!");
       });
@@ -107,7 +110,7 @@ describe("Tap Method", () => {
     let tappedBuffer: Float32Array | null = null;
 
     const pipeline = createDspPipeline()
-      .MovingAverage({ windowSize: 2 })
+      .MovingAverage({ mode: "moving", windowSize: 2 })
       .tap((samples) => {
         tappedBuffer = samples;
       });
@@ -123,7 +126,7 @@ describe("Tap Method", () => {
     const inspectedSlices: number[][] = [];
 
     const pipeline = createDspPipeline()
-      .MovingAverage({ windowSize: 3 })
+      .MovingAverage({ mode: "moving", windowSize: 3 })
       .tap((samples) => {
         // Common pattern: inspect first few samples
         inspectedSlices.push(Array.from(samples.slice(0, 3)));
@@ -147,7 +150,7 @@ describe("Tap Method", () => {
           onBatchCalled = true;
         },
       })
-      .MovingAverage({ windowSize: 2 })
+      .MovingAverage({ mode: "moving", windowSize: 2 })
       .tap(() => {
         tapCalled = true;
       });

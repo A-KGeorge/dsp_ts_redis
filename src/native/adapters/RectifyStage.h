@@ -3,7 +3,7 @@
 #include <cmath>
 #include <stdexcept>
 
-namespace dsp
+namespace dsp::adapters
 {
     enum class RectifyMode
     {
@@ -85,4 +85,4 @@ namespace dsp
     private:
         RectifyMode m_mode;
     };
-}
+} // namespace dsp::adapters

@@ -77,7 +77,7 @@ describe("Redis State Persistence", () => {
 
       const stateKey = "test:dsp:state:1";
       const processor = createDspPipeline();
-      processor.MovingAverage({ windowSize: 3 });
+      processor.MovingAverage({ mode: "moving", windowSize: 3 });
 
       // Build state
       await processor.process(
@@ -96,7 +96,7 @@ describe("Redis State Persistence", () => {
 
       // Create new processor and restore
       const processor2 = createDspPipeline();
-      processor2.MovingAverage({ windowSize: 3 });
+      processor2.MovingAverage({ mode: "moving", windowSize: 3 });
 
       const restoredState = await redis.get(stateKey);
       assert.ok(restoredState);
@@ -129,7 +129,7 @@ describe("Redis State Persistence", () => {
 
       const stateKey = "test:dsp:state:2";
       const processor = createDspPipeline();
-      processor.MovingAverage({ windowSize: 2 });
+      processor.MovingAverage({ mode: "moving", windowSize: 2 });
 
       // Initial state
       await processor.process(new Float32Array([1, 2]), DEFAULT_OPTIONS);
@@ -156,8 +156,8 @@ describe("Redis State Persistence", () => {
       const stateKey = "test:dsp:state:complex";
       const processor = createDspPipeline();
       processor
-        .MovingAverage({ windowSize: 3 })
-        .Rms({ windowSize: 2 })
+        .MovingAverage({ mode: "moving", windowSize: 3 })
+        .Rms({ mode: "moving", windowSize: 2 })
         .Rectify({ mode: "full" });
 
       // Build state
@@ -176,8 +176,8 @@ describe("Redis State Persistence", () => {
       // Restore in new processor
       const processor2 = createDspPipeline();
       processor2
-        .MovingAverage({ windowSize: 3 })
-        .Rms({ windowSize: 2 })
+        .MovingAverage({ mode: "moving", windowSize: 3 })
+        .Rms({ mode: "moving", windowSize: 2 })
         .Rectify({ mode: "full" });
 
       const restoredState = await redis.get(stateKey);
@@ -204,7 +204,7 @@ describe("Redis State Persistence", () => {
 
       const stateKey = "test:dsp:state:stream";
       const processor = createDspPipeline();
-      processor.MovingAverage({ windowSize: 5 });
+      processor.MovingAverage({ mode: "moving", windowSize: 5 });
 
       const chunks = [
         new Float32Array([1, 2, 3]),
@@ -231,7 +231,7 @@ describe("Redis State Persistence", () => {
 
       // Simulate restart and continue processing
       const processor2 = createDspPipeline();
-      processor2.MovingAverage({ windowSize: 5 });
+      processor2.MovingAverage({ mode: "moving", windowSize: 5 });
 
       const savedState = await redis.get(stateKey);
       assert.ok(savedState);
@@ -255,7 +255,7 @@ describe("Redis State Persistence", () => {
 
       const stateKey = "test:dsp:state:rapid";
       const processor = createDspPipeline();
-      processor.Rms({ windowSize: 3 });
+      processor.Rms({ mode: "moving", windowSize: 3 });
 
       // Rapidly process and save
       for (let i = 0; i < 10; i++) {
@@ -269,7 +269,7 @@ describe("Redis State Persistence", () => {
       assert.ok(finalState);
 
       const processor2 = createDspPipeline();
-      processor2.Rms({ windowSize: 3 });
+      processor2.Rms({ mode: "moving", windowSize: 3 });
       await processor2.loadState(finalState);
 
       // Both should be in sync
@@ -295,13 +295,13 @@ describe("Redis State Persistence", () => {
 
       // Channel 1
       const processor1 = createDspPipeline();
-      processor1.MovingAverage({ windowSize: 2 });
+      processor1.MovingAverage({ mode: "moving", windowSize: 2 });
       await processor1.process(new Float32Array([1, 2]), DEFAULT_OPTIONS);
       await redis.set(channel1Key, await processor1.saveState());
 
       // Channel 2
       const processor2 = createDspPipeline();
-      processor2.MovingAverage({ windowSize: 3 });
+      processor2.MovingAverage({ mode: "moving", windowSize: 3 });
       await processor2.process(new Float32Array([3, 4, 5]), DEFAULT_OPTIONS);
       await redis.set(channel2Key, await processor2.saveState());
 
@@ -328,7 +328,7 @@ describe("Redis State Persistence", () => {
 
       const stateKey = "test:dsp:state:ttl";
       const processor = createDspPipeline();
-      processor.MovingAverage({ windowSize: 2 });
+      processor.MovingAverage({ mode: "moving", windowSize: 2 });
 
       await processor.process(new Float32Array([1, 2]), DEFAULT_OPTIONS);
       const state = await processor.saveState();
@@ -352,7 +352,7 @@ describe("Redis State Persistence", () => {
 
       const stateKey = "test:dsp:state:corrupted";
       const processor = createDspPipeline();
-      processor.MovingAverage({ windowSize: 3 });
+      processor.MovingAverage({ mode: "moving", windowSize: 3 });
 
       // Save corrupted JSON
       await redis.set(stateKey, "{ invalid json }");
@@ -371,7 +371,7 @@ describe("Redis State Persistence", () => {
 
       const stateKey = "test:dsp:state:invalid";
       const processor = createDspPipeline();
-      processor.MovingAverage({ windowSize: 3 });
+      processor.MovingAverage({ mode: "moving", windowSize: 3 });
 
       await processor.process(new Float32Array([1, 2, 3]), DEFAULT_OPTIONS);
       const stateJson = await processor.saveState();
@@ -386,7 +386,7 @@ describe("Redis State Persistence", () => {
 
       // Should throw validation error
       const processor2 = createDspPipeline();
-      processor2.MovingAverage({ windowSize: 3 });
+      processor2.MovingAverage({ mode: "moving", windowSize: 3 });
 
       const corruptedState = await redis.get(stateKey);
       assert.ok(corruptedState);
@@ -404,7 +404,7 @@ describe("Redis State Persistence", () => {
 
       const stateKey = "test:dsp:state:timestamp";
       const processor = createDspPipeline();
-      processor.MovingAverage({ windowSize: 2 });
+      processor.MovingAverage({ mode: "moving", windowSize: 2 });
 
       await processor.process(new Float32Array([1, 2]), DEFAULT_OPTIONS);
       const stateJson = await processor.saveState();
@@ -421,7 +421,7 @@ describe("Redis State Persistence", () => {
       const stateKey = "test:dsp:state:version";
       const metadataKey = "test:dsp:state:version:meta";
       const processor = createDspPipeline();
-      processor.MovingAverage({ windowSize: 2 });
+      processor.MovingAverage({ mode: "moving", windowSize: 2 });
 
       // Save multiple versions
       const versions: string[] = [];

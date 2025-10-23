@@ -7,6 +7,8 @@ import type {
   MovingAverageParams,
   RmsParams,
   RectifyParams,
+  VarianceParams,
+  ZScoreNormalizeParams,
   PipelineCallbacks,
   LogEntry,
   SampleBatch,
@@ -178,28 +180,64 @@ class DspProcessor {
   /**
    * Add a moving average filter stage to the pipeline
    * @param params - Configuration for the moving average filter
+   * @param params.mode - "batch" for stateless averaging (all samples → single average), "moving" for windowed averaging
+   * @param params.windowSize - Required for "moving" mode, size of the sliding window
    * @returns this instance for method chaining
+   *
+   * @example
+   * // Batch mode (stateless)
+   * pipeline.MovingAverage({ mode: "batch" });
+   *
+   * @example
+   * // Moving mode with window
+   * pipeline.MovingAverage({ mode: "moving", windowSize: 10 });
    */
   MovingAverage(params: MovingAverageParams): this {
-    if (params.windowSize <= 0 || !Number.isInteger(params.windowSize)) {
-      throw new TypeError(
-        `MovingAverage: windowSize must be a positive integer, got ${params.windowSize}`
-      );
+    if (params.mode === "moving") {
+      if (
+        !params.windowSize ||
+        params.windowSize <= 0 ||
+        !Number.isInteger(params.windowSize)
+      ) {
+        throw new TypeError(
+          `MovingAverage: windowSize must be a positive integer for "moving" mode, got ${params.windowSize}`
+        );
+      }
     }
     this.nativeInstance.addStage("movingAverage", params);
-    this.stages.push("movingAverage");
+    this.stages.push(`movingAverage:${params.mode}`);
     return this;
   }
 
   /**
    * Add a RMS (root mean square) stage to the pipeline
    * @param params - Configuration for the RMS filter
+   * @param params.mode - "batch" for stateless RMS (all samples → single RMS), "moving" for windowed RMS
+   * @param params.windowSize - Required for "moving" mode, size of the sliding window
    * @returns this instance for method chaining
+   *
+   * @example
+   * // Batch mode (stateless)
+   * pipeline.Rms({ mode: "batch" });
+   *
+   * @example
+   * // Moving mode with window
+   * pipeline.Rms({ mode: "moving", windowSize: 50 });
    */
-
   Rms(params: RmsParams): this {
+    if (params.mode === "moving") {
+      if (
+        !params.windowSize ||
+        params.windowSize <= 0 ||
+        !Number.isInteger(params.windowSize)
+      ) {
+        throw new TypeError(
+          `RMS: windowSize must be a positive integer for "moving" mode, got ${params.windowSize}`
+        );
+      }
+    }
     this.nativeInstance.addStage("rms", params);
-    this.stages.push("rms");
+    this.stages.push(`rms:${params.mode}`);
     return this;
   }
 
@@ -211,6 +249,71 @@ class DspProcessor {
   Rectify(params?: RectifyParams): this {
     this.nativeInstance.addStage("rectify", params || { mode: "full" });
     this.stages.push(`rectify:${params?.mode || "full"}`);
+    return this;
+  }
+
+  /**
+   * Add a variance stage to the pipeline
+   * Variance measures the spread of data around the mean
+   *
+   * @param params - Configuration for the variance filter
+   * @param params.mode - "batch" for stateless variance (all samples → single value), "moving" for windowed variance
+   * @param params.windowSize - Required for "moving" mode, size of the sliding window
+   * @returns this instance for method chaining
+   *
+   * @example
+   * // Batch variance (stateless)
+   * pipeline.Variance({ mode: "batch" });
+   *
+   * @example
+   * // Moving variance with 100-sample window
+   * pipeline.Variance({ mode: "moving", windowSize: 100 });
+   */
+  Variance(params: VarianceParams): this {
+    if (params.mode === "moving") {
+      if (
+        !params.windowSize ||
+        params.windowSize <= 0 ||
+        !Number.isInteger(params.windowSize)
+      ) {
+        throw new TypeError(
+          `Variance: windowSize must be a positive integer for "moving" mode, got ${params.windowSize}`
+        );
+      }
+    }
+    this.nativeInstance.addStage("variance", params);
+    this.stages.push(`variance:${params.mode}`);
+    return this;
+  }
+
+  /**
+   * Add a Z-Score Normalization stage to the pipeline
+   * Z-Score Normalization standardizes data to have mean 0 and standard deviation 1
+   * @param params - Configuration for the Z-Score Normalization filter
+   * @param params.mode - "batch" for stateless normalization, "moving" for windowed normalization
+   * @param params.windowSize - Required for "moving" mode, size of the sliding window
+   * @return this instance for method chaining
+   * @example
+   * // Batch Z-Score Normalization (stateless)
+   * pipeline.ZScoreNormalize({ mode: "batch" });
+   * @example
+   * // Moving Z-Score Normalization with 100-sample window
+   * pipeline.ZScoreNormalize({ mode: "moving", windowSize: 100 });
+   */
+  ZScoreNormalize(params: ZScoreNormalizeParams): this {
+    if (params.mode === "moving") {
+      if (
+        !params.windowSize ||
+        params.windowSize <= 0 ||
+        !Number.isInteger(params.windowSize)
+      ) {
+        throw new TypeError(
+          `Z-Score Normalize: windowSize must be a positive integer for "moving" mode, got ${params.windowSize}`
+        );
+      }
+    }
+    this.nativeInstance.addStage("zScoreNormalize", params);
+    this.stages.push(`zScoreNormalize:${params.mode}`);
     return this;
   }
 
@@ -234,16 +337,16 @@ class DspProcessor {
    *
    * @example
    * pipeline
-   *   .MovingAverage({ windowSize: 10 })
+   *   .MovingAverage({ mode: "moving", windowSize: 10 })
    *   .tap((samples, stage) => console.log(`After ${stage}:`, samples.slice(0, 5)))
    *   .Rectify()
    *   .tap((samples) => logger.debug('After rectify:', samples.slice(0, 5)))
-   *   .Rms({ windowSize: 5 });
+   *   .Rms({ mode: "moving", windowSize: 5 });
    *
    * @example
    * // Conditional logging
    * pipeline
-   *   .MovingAverage({ windowSize: 100 })
+   *   .MovingAverage({ mode: "moving", windowSize: 100 })
    *   .tap((samples, stage) => {
    *     const max = Math.max(...samples);
    *     if (max > THRESHOLD) {
@@ -279,7 +382,7 @@ class DspProcessor {
    *       console.log(`[${level}] ${msg}`, ctx);
    *     },
    *   })
-   *   .MovingAverage({ windowSize: 10 })
+   *   .MovingAverage({ mode: "moving", windowSize: 10 })
    *   .Rectify();
    */
   pipeline(callbacks: PipelineCallbacks): this {
@@ -460,9 +563,9 @@ class DspProcessor {
    *
    * @example
    * const pipeline = createDspPipeline()
-   *   .MovingAverage({ windowSize: 100 })
+   *   .MovingAverage({ mode: "moving", windowSize: 100 })
    *   .Rectify({ mode: 'full' })
-   *   .Rms({ windowSize: 50 });
+   *   .Rms({ mode: "moving", windowSize: 50 });
    *
    * const summary = pipeline.listState();
    * console.log(summary);

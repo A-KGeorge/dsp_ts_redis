@@ -9,7 +9,7 @@ async function testRmsStateManagement() {
 
   // 1. Create pipeline and add RMS stage
   const pipeline = createDspPipeline();
-  pipeline.Rms({ windowSize: 3 });
+  pipeline.Rms({ mode: "moving", windowSize: 3 });
 
   console.log("Pipeline created with RMS filter (window=3)");
 
@@ -53,7 +53,7 @@ async function testRmsStateManagement() {
   // 6. Create new pipeline and load state
   console.log("\n--- Creating New Pipeline ---");
   const pipeline2 = createDspPipeline();
-  pipeline2.Rms({ windowSize: 3 });
+  pipeline2.Rms({ mode: "moving", windowSize: 3 });
 
   console.log("Loading previous state...");
   const loaded = await pipeline2.loadState(stateJson2);

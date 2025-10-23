@@ -1,53 +1,53 @@
 #pragma once
 
 #include "../IDspStage.h"
-#include "../core/RmsFilter.h"
+#include "../core/MovingVarianceFilter.h"
 #include <vector>
+#include <string>
 #include <stdexcept>
 #include <cmath>
-#include <string>
-#include <algorithm>
-#include <numeric> // For std::accumulate
+#include <numeric>   // For std::accumulate
+#include <algorithm> // For std::max
 
 namespace dsp::adapters
 {
-    enum class RmsMode
+    enum class VarianceMode
     {
         Batch,
         Moving
     };
 
-    class RmsStage : public IDspStage
+    class VarianceStage : public IDspStage
     {
     public:
         /**
-         * @brief Constructs a new RMS Stage.
-         * @param mode The RMS mode (Batch or Moving).
+         * @brief Constructs a new Variance Stage.
+         * @param mode The variance mode (Batch or Moving).
          * @param window_size The window size, required only for 'Moving' mode.
          */
-        explicit RmsStage(RmsMode mode, size_t window_size = 0)
+        explicit VarianceStage(VarianceMode mode, size_t window_size = 0)
             : m_mode(mode), m_window_size(window_size)
         {
-            if (m_mode == RmsMode::Moving && window_size == 0)
+            if (m_mode == VarianceMode::Moving && window_size == 0)
             {
-                throw std::invalid_argument("RMS: window size must be greater than 0 for 'moving' mode");
+                throw std::invalid_argument("Variance: window size must be greater than 0 for 'moving' mode");
             }
         }
 
         // Return the type identifier for this stage
         const char *getType() const override
         {
-            return "rms";
+            return "variance";
         }
 
         // Implementation of the interface method
         void process(float *buffer, size_t numSamples, int numChannels) override
         {
-            if (m_mode == RmsMode::Batch)
+            if (m_mode == VarianceMode::Batch)
             {
                 processBatch(buffer, numSamples, numChannels);
             }
-            else // RmsMode::Moving
+            else // VarianceMode::Moving
             {
                 processMoving(buffer, numSamples, numChannels);
             }
@@ -57,10 +57,10 @@ namespace dsp::adapters
         Napi::Object serializeState(Napi::Env env) const override
         {
             Napi::Object state = Napi::Object::New(env);
-            std::string modeStr = (m_mode == RmsMode::Moving) ? "moving" : "batch";
+            std::string modeStr = (m_mode == VarianceMode::Moving) ? "moving" : "batch";
             state.Set("mode", modeStr);
 
-            if (m_mode == RmsMode::Moving)
+            if (m_mode == VarianceMode::Moving)
             {
                 state.Set("windowSize", static_cast<uint32_t>(m_window_size));
                 state.Set("numChannels", static_cast<uint32_t>(m_filters.size()));
@@ -72,7 +72,8 @@ namespace dsp::adapters
                     Napi::Object channelState = Napi::Object::New(env);
 
                     // Get the filter's internal state
-                    auto [bufferData, runningSumOfSquares] = m_filters[i].getState();
+                    auto [bufferData, sums] = m_filters[i].getState();
+                    auto [runningSum, runningSumOfSquares] = sums;
 
                     // Convert buffer data to JavaScript array
                     Napi::Array bufferArray = Napi::Array::New(env, bufferData.size());
@@ -82,7 +83,7 @@ namespace dsp::adapters
                     }
 
                     channelState.Set("buffer", bufferArray);
-                    // Store the running sum of squares
+                    channelState.Set("runningSum", Napi::Number::New(env, runningSum));
                     channelState.Set("runningSumOfSquares", Napi::Number::New(env, runningSumOfSquares));
 
                     channelsArray.Set(static_cast<uint32_t>(i), channelState);
@@ -97,14 +98,14 @@ namespace dsp::adapters
         void deserializeState(const Napi::Object &state) override
         {
             std::string modeStr = state.Get("mode").As<Napi::String>().Utf8Value();
-            RmsMode newMode = (modeStr == "moving") ? RmsMode::Moving : RmsMode::Batch;
+            VarianceMode newMode = (modeStr == "moving") ? VarianceMode::Moving : VarianceMode::Batch;
 
             if (newMode != m_mode)
             {
-                throw std::runtime_error("RMS mode mismatch during deserialization");
+                throw std::runtime_error("Variance mode mismatch during deserialization");
             }
 
-            if (m_mode == RmsMode::Moving)
+            if (m_mode == VarianceMode::Moving)
             {
                 // Get window size and validate
                 size_t windowSize = state.Get("windowSize").As<Napi::Number>().Uint32Value();
@@ -138,26 +139,40 @@ namespace dsp::adapters
                         bufferData.push_back(bufferArray.Get(j).As<Napi::Number>().FloatValue());
                     }
 
-                    // Get running sum of squares
+                    // Get running sums
+                    float runningSum = channelState.Get("runningSum").As<Napi::Number>().FloatValue();
                     float runningSumOfSquares = channelState.Get("runningSumOfSquares").As<Napi::Number>().FloatValue();
 
-                    // Validate runningSumOfSquares matches buffer contents
+                    // --- Validation (similar to RmsStage and MovingAverageStage) ---
+                    float actualSum = 0.0f;
                     float actualSumOfSquares = 0.0f;
                     for (const auto &val : bufferData)
                     {
+                        actualSum += val;
                         actualSumOfSquares += val * val;
                     }
-                    const float tolerance = 0.0001f * std::max(1.0f, std::abs(actualSumOfSquares));
-                    if (std::abs(runningSumOfSquares - actualSumOfSquares) > tolerance)
+
+                    const float toleranceSum = 0.0001f * std::max(1.0f, std::abs(actualSum));
+                    if (std::abs(runningSum - actualSum) > toleranceSum)
+                    {
+                        throw std::runtime_error(
+                            "Running sum validation failed: expected " +
+                            std::to_string(actualSum) + " but got " +
+                            std::to_string(runningSum));
+                    }
+
+                    const float toleranceSq = 0.0001f * std::max(1.0f, std::abs(actualSumOfSquares));
+                    if (std::abs(runningSumOfSquares - actualSumOfSquares) > toleranceSq)
                     {
                         throw std::runtime_error(
                             "Running sum of squares validation failed: expected " +
                             std::to_string(actualSumOfSquares) + " but got " +
                             std::to_string(runningSumOfSquares));
                     }
+                    // --- End Validation ---
 
                     // Restore the filter's state
-                    m_filters[i].setState(bufferData, runningSumOfSquares);
+                    m_filters[i].setState(bufferData, runningSum, runningSumOfSquares);
                 }
             }
         }
@@ -173,7 +188,7 @@ namespace dsp::adapters
 
     private:
         /**
-         * @brief Statelessly calculates the RMS for each channel
+         * @brief Statelessly calculates the variance for each channel
          * and overwrites all samples in that channel with the result.
          */
         void processBatch(float *buffer, size_t numSamples, int numChannels)
@@ -184,41 +199,41 @@ namespace dsp::adapters
                 if (numSamplesPerChannel == 0)
                     continue;
 
+                double sum = 0.0;
                 double sum_sq = 0.0;
 
-                // First pass: Calculate sum of squares
+                // First pass: Calculate sums
                 for (size_t i = c; i < numSamples; i += numChannels)
                 {
                     double val = static_cast<double>(buffer[i]);
+                    sum += val;
                     sum_sq += val * val;
                 }
 
-                // Calculate mean of squares
+                // Calculate variance
+                double mean = sum / numSamplesPerChannel;
                 double mean_sq = sum_sq / numSamplesPerChannel;
+                float variance = static_cast<float>(std::max(0.0, mean_sq - (mean * mean)));
 
-                // Calculate RMS
-                float rms = static_cast<float>(std::sqrt(std::max(0.0, mean_sq)));
-
-                // Second pass: Fill this channel's buffer with the single RMS value
+                // Second pass: Fill this channel's buffer with the single variance value
                 for (size_t i = c; i < numSamples; i += numChannels)
                 {
-                    buffer[i] = rms;
+                    buffer[i] = variance;
                 }
             }
         }
 
         /**
-         * @brief Statefully processes samples using the moving RMS filters.
+         * @brief Statefully processes samples using the moving variance filters.
          */
         void processMoving(float *buffer, size_t numSamples, int numChannels)
         {
-            // Lazily initialize filters, one for each channel
+            // Lazily initialize our filters, one for each channel
             if (m_filters.size() != numChannels)
             {
                 m_filters.clear();
                 for (int i = 0; i < numChannels; ++i)
                 {
-                    // Create one RmsFilter for each channel
                     m_filters.emplace_back(m_window_size);
                 }
             }
@@ -228,15 +243,15 @@ namespace dsp::adapters
             {
                 int channel = i % numChannels;
 
-                // Get RMS value from the correct filter and write it back in-place
+                // Get sample from the correct filter, and write it back in-place
                 buffer[i] = m_filters[channel].addSample(buffer[i]);
             }
         }
 
-        RmsMode m_mode;
+        VarianceMode m_mode;
         size_t m_window_size;
-        // A separate RMS filter instance for each channel
-        std::vector<dsp::core::RmsFilter<float>> m_filters;
+        // We need a separate filter instance for each channel's state
+        std::vector<dsp::core::MovingVarianceFilter<float>> m_filters;
     };
 
 } // namespace dsp::adapters

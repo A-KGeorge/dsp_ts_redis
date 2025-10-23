@@ -133,9 +133,9 @@ async function monitoringExample() {
   // Build pipeline with comprehensive processing
   const pipeline = createDspPipeline()
     .pipeline(callbacks)
-    .MovingAverage({ windowSize: 5 })
+    .MovingAverage({ mode: "moving", windowSize: 5 })
     .Rectify({ mode: "full" })
-    .Rms({ windowSize: 10 });
+    .Rms({ mode: "moving", windowSize: 10 });
 
   console.log("Processing audio batches...\n");
 
@@ -213,8 +213,8 @@ async function selectiveCallbacksExample() {
 
   const pipeline = createDspPipeline()
     .pipeline(lightweightCallbacks)
-    .MovingAverage({ windowSize: 3 })
-    .Rms({ windowSize: 5 });
+    .MovingAverage({ mode: "moving", windowSize: 3 })
+    .Rms({ mode: "moving", windowSize: 5 });
 
   console.log("Processing large batches without per-sample callbacks...\n");
 

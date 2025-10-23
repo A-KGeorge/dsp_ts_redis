@@ -21,7 +21,7 @@ describe("RMS Filter", () => {
 
   describe("Basic Functionality", () => {
     test("should compute RMS with window size 3", async () => {
-      processor.Rms({ windowSize: 3 });
+      processor.Rms({ mode: "moving", windowSize: 3 });
 
       const input = new Float32Array([3, 4, 0, 6, 8]);
       const output = await processor.process(input, DEFAULT_OPTIONS);
@@ -40,7 +40,7 @@ describe("RMS Filter", () => {
     });
 
     test("should handle single sample window", async () => {
-      processor.Rms({ windowSize: 1 });
+      processor.Rms({ mode: "moving", windowSize: 1 });
 
       const input = new Float32Array([3, 4, 5]);
       const output = await processor.process(input, DEFAULT_OPTIONS);
@@ -52,7 +52,7 @@ describe("RMS Filter", () => {
     });
 
     test("should compute RMS correctly for negative values", async () => {
-      processor.Rms({ windowSize: 2 });
+      processor.Rms({ mode: "moving", windowSize: 2 });
 
       const input = new Float32Array([-3, 4, -5, 12]);
       const output = await processor.process(input, DEFAULT_OPTIONS);
@@ -68,7 +68,7 @@ describe("RMS Filter", () => {
     });
 
     test("should maintain state across multiple process calls", async () => {
-      processor.Rms({ windowSize: 3 });
+      processor.Rms({ mode: "moving", windowSize: 3 });
 
       // First batch: [3, 4]
       const output1 = await processor.process(
@@ -90,7 +90,7 @@ describe("RMS Filter", () => {
 
   describe("State Management", () => {
     test("should serialize and deserialize state correctly", async () => {
-      processor.Rms({ windowSize: 3 });
+      processor.Rms({ mode: "moving", windowSize: 3 });
 
       // Build state
       await processor.process(new Float32Array([3, 4, 5]), DEFAULT_OPTIONS);
@@ -107,7 +107,7 @@ describe("RMS Filter", () => {
 
       // Create new processor and load state
       const processor2 = createDspPipeline();
-      processor2.Rms({ windowSize: 3 });
+      processor2.Rms({ mode: "moving", windowSize: 3 });
       await processor2.loadState(stateJson);
 
       // Both should produce same output for next sample
@@ -124,7 +124,7 @@ describe("RMS Filter", () => {
     });
 
     test("should reset state correctly", async () => {
-      processor.Rms({ windowSize: 3 });
+      processor.Rms({ mode: "moving", windowSize: 3 });
 
       // Build state
       await processor.process(new Float32Array([3, 4, 5]), DEFAULT_OPTIONS);
@@ -141,7 +141,7 @@ describe("RMS Filter", () => {
     });
 
     test("should validate runningSumOfSquares on state load", async () => {
-      processor.Rms({ windowSize: 3 });
+      processor.Rms({ mode: "moving", windowSize: 3 });
       await processor.process(new Float32Array([3, 4, 5]), DEFAULT_OPTIONS);
 
       const stateJson = await processor.saveState();
@@ -154,7 +154,7 @@ describe("RMS Filter", () => {
 
       // Should throw when loading corrupted state
       const processor2 = createDspPipeline();
-      processor2.Rms({ windowSize: 3 });
+      processor2.Rms({ mode: "moving", windowSize: 3 });
       await assert.rejects(
         async () => await processor2.loadState(JSON.stringify(state)),
         /Running sum of squares validation failed/
@@ -162,7 +162,7 @@ describe("RMS Filter", () => {
     });
 
     test("should validate window size on state load", async () => {
-      processor.Rms({ windowSize: 3 });
+      processor.Rms({ mode: "moving", windowSize: 3 });
       await processor.process(new Float32Array([3, 4, 5]), DEFAULT_OPTIONS);
 
       const stateJson = await processor.saveState();
@@ -175,7 +175,7 @@ describe("RMS Filter", () => {
 
       // Should throw when loading corrupted state
       const processor2 = createDspPipeline();
-      processor2.Rms({ windowSize: 3 });
+      processor2.Rms({ mode: "moving", windowSize: 3 });
       await assert.rejects(
         async () => await processor2.loadState(JSON.stringify(state)),
         /Window size mismatch/
@@ -185,7 +185,7 @@ describe("RMS Filter", () => {
 
   describe("Mathematical Properties", () => {
     test("should compute RMS of constant signal correctly", async () => {
-      processor.Rms({ windowSize: 4 });
+      processor.Rms({ mode: "moving", windowSize: 4 });
 
       const input = new Float32Array([5, 5, 5, 5]);
       const output = await processor.process(input, DEFAULT_OPTIONS);
@@ -195,7 +195,7 @@ describe("RMS Filter", () => {
     });
 
     test("should compute RMS of zero signal", async () => {
-      processor.Rms({ windowSize: 3 });
+      processor.Rms({ mode: "moving", windowSize: 3 });
 
       const input = new Float32Array([0, 0, 0, 0]);
       const output = await processor.process(input, DEFAULT_OPTIONS);
@@ -204,7 +204,7 @@ describe("RMS Filter", () => {
     });
 
     test("should handle alternating positive/negative", async () => {
-      processor.Rms({ windowSize: 2 });
+      processor.Rms({ mode: "moving", windowSize: 2 });
 
       const input = new Float32Array([3, -3, 4, -4]);
       const output = await processor.process(input, DEFAULT_OPTIONS);
@@ -220,7 +220,7 @@ describe("RMS Filter", () => {
     });
 
     test("should produce value equal to or less than max absolute value", async () => {
-      processor.Rms({ windowSize: 3 });
+      processor.Rms({ mode: "moving", windowSize: 3 });
 
       const input = new Float32Array([1, 5, 2]);
       const output = await processor.process(input, DEFAULT_OPTIONS);
@@ -234,7 +234,7 @@ describe("RMS Filter", () => {
 
   describe("Edge Cases", () => {
     test("should handle empty input array", async () => {
-      processor.Rms({ windowSize: 3 });
+      processor.Rms({ mode: "moving", windowSize: 3 });
 
       const output = await processor.process(
         new Float32Array([]),
@@ -244,7 +244,7 @@ describe("RMS Filter", () => {
     });
 
     test("should handle very small values", async () => {
-      processor.Rms({ windowSize: 2 });
+      processor.Rms({ mode: "moving", windowSize: 2 });
 
       const input = new Float32Array([0.0001, 0.0002, 0.0001]);
       const output = await processor.process(input, DEFAULT_OPTIONS);
@@ -253,7 +253,7 @@ describe("RMS Filter", () => {
     });
 
     test("should handle very large values", async () => {
-      processor.Rms({ windowSize: 2 });
+      processor.Rms({ mode: "moving", windowSize: 2 });
 
       const input = new Float32Array([1e6, 1e6]);
       const output = await processor.process(input, DEFAULT_OPTIONS);
@@ -263,7 +263,7 @@ describe("RMS Filter", () => {
     });
 
     test("should handle mixed magnitude ranges", async () => {
-      processor.Rms({ windowSize: 3 });
+      processor.Rms({ mode: "moving", windowSize: 3 });
 
       const input = new Float32Array([0.001, 1000, 0.001]);
       const output = await processor.process(input, DEFAULT_OPTIONS);
@@ -275,7 +275,7 @@ describe("RMS Filter", () => {
 
   describe("Multi-channel Processing", () => {
     test("should process data with stateful continuity", async () => {
-      processor.Rms({ windowSize: 2 });
+      processor.Rms({ mode: "moving", windowSize: 2 });
 
       // First batch
       const output1 = await processor.process(
@@ -297,7 +297,7 @@ describe("RMS Filter", () => {
     });
 
     test("should maintain separate state across multiple batches", async () => {
-      processor.Rms({ windowSize: 2 });
+      processor.Rms({ mode: "moving", windowSize: 2 });
 
       const batches = [
         new Float32Array([1, 2]),

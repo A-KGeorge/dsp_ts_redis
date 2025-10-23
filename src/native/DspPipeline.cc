@@ -3,8 +3,8 @@
 #include "adapters/MovingAverageStage.h"
 #include "adapters/RmsStage.h"
 #include "adapters/RectifyStage.h"
-// #include "NotchFilterStage.h" // You will add more here...
-// #include "ButterworthStage.h" // ...and here
+#include "adapters/VarianceStage.h"
+#include "adapters/ZScoreNormalizeStage.h"
 
 #include <iostream>
 #include <ctime>
@@ -48,32 +48,89 @@ namespace dsp
     {
         m_stageFactories["movingAverage"] = [](const Napi::Object &params)
         {
-            size_t windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
-            return std::make_unique<MovingAverageStage>(windowSize);
+            std::string modeStr = params.Get("mode").As<Napi::String>().Utf8Value();
+            dsp::adapters::AverageMode mode = (modeStr == "moving") ? dsp::adapters::AverageMode::Moving : dsp::adapters::AverageMode::Batch;
+
+            size_t windowSize = 0;
+            if (mode == dsp::adapters::AverageMode::Moving)
+            {
+                if (!params.Has("windowSize"))
+                {
+                    throw std::invalid_argument("MovingAverage: 'windowSize' is required for 'moving' mode");
+                }
+                windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+            }
+
+            return std::make_unique<dsp::adapters::MovingAverageStage>(mode, windowSize);
         };
 
         m_stageFactories["rms"] = [](const Napi::Object &params)
         {
-            size_t windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
-            return std::make_unique<RmsStage>(windowSize);
+            std::string modeStr = params.Get("mode").As<Napi::String>().Utf8Value();
+            dsp::adapters::RmsMode mode = (modeStr == "moving") ? dsp::adapters::RmsMode::Moving : dsp::adapters::RmsMode::Batch;
+
+            size_t windowSize = 0;
+            if (mode == dsp::adapters::RmsMode::Moving)
+            {
+                if (!params.Has("windowSize"))
+                {
+                    throw std::invalid_argument("RMS: 'windowSize' is required for 'moving' mode");
+                }
+                windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+            }
+
+            return std::make_unique<dsp::adapters::RmsStage>(mode, windowSize);
         };
 
         m_stageFactories["rectify"] = [](const Napi::Object &params)
         {
             std::string modeStr = params.Get("mode").As<Napi::String>().Utf8Value();
-            RectifyMode mode = (modeStr == "half") ? RectifyMode::HalfWave : RectifyMode::FullWave;
-            return std::make_unique<RectifyStage>(mode);
+            dsp::adapters::RectifyMode mode = (modeStr == "half") ? dsp::adapters::RectifyMode::HalfWave : dsp::adapters::RectifyMode::FullWave;
+            return std::make_unique<dsp::adapters::RectifyStage>(mode);
         };
 
-        // Add more stages here as you implement them:
-        // m_stageFactories["rectify"] = [](const Napi::Object& params) {
-        //     return std::make_unique<RectifyStage>();
-        // };
-        //
-        // m_stageFactories["notchFilter"] = [](const Napi::Object& params) {
-        //     double freq = params.Get("freqHz").As<Napi::Number>().DoubleValue();
-        //     return std::make_unique<NotchFilterStage>(freq);
-        // };
+        m_stageFactories["variance"] = [](const Napi::Object &params)
+        {
+            std::string modeStr = params.Get("mode").As<Napi::String>().Utf8Value();
+            dsp::adapters::VarianceMode mode = (modeStr == "moving") ? dsp::adapters::VarianceMode::Moving : dsp::adapters::VarianceMode::Batch;
+
+            size_t windowSize = 0;
+            if (mode == dsp::adapters::VarianceMode::Moving)
+            {
+                if (!params.Has("windowSize"))
+                {
+                    throw std::invalid_argument("Variance: 'windowSize' is required for 'moving' mode");
+                }
+                windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+            }
+
+            return std::make_unique<dsp::adapters::VarianceStage>(mode, windowSize);
+        };
+
+        m_stageFactories["zScoreNormalize"] = [](const Napi::Object &params)
+        {
+            std::string modeStr = params.Get("mode").As<Napi::String>().Utf8Value();
+            dsp::adapters::ZScoreNormalizeMode mode = (modeStr == "moving") ? dsp::adapters::ZScoreNormalizeMode::Moving : dsp::adapters::ZScoreNormalizeMode::Batch;
+
+            size_t windowSize = 0;
+            if (mode == dsp::adapters::ZScoreNormalizeMode::Moving)
+            {
+                if (!params.Has("windowSize"))
+                {
+                    throw std::invalid_argument("ZScoreNormalize: 'windowSize' is required for 'moving' mode");
+                }
+                windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+            }
+
+            // Get optional epsilon, default to 1e-6
+            float epsilon = 1e-6f;
+            if (params.Has("epsilon"))
+            {
+                epsilon = params.Get("epsilon").As<Napi::Number>().FloatValue();
+            }
+
+            return std::make_unique<dsp::adapters::ZScoreNormalizeStage>(mode, windowSize, epsilon);
+        };
     }
 
     /**

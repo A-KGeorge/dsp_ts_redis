@@ -84,9 +84,9 @@ async function compareCallbackPerformance() {
         console.log(`Stage ${stage} completed in ${duration.toFixed(3)}ms`);
       },
     })
-    .MovingAverage({ windowSize: 10 })
+    .MovingAverage({ mode: "moving", windowSize: 10 })
     .Rectify({ mode: "full" })
-    .Rms({ windowSize: 10 });
+    .Rms({ mode: "moving", windowSize: 10 });
 
   const startPooled = performance.now();
   for (let batch = 0; batch < numBatches; batch++) {
@@ -142,9 +142,9 @@ async function compareCallbackPerformance() {
         console.log(`Stage ${stage} completed in ${duration.toFixed(3)}ms`);
       },
     })
-    .MovingAverage({ windowSize: 10 })
+    .MovingAverage({ mode: "moving", windowSize: 10 })
     .Rectify({ mode: "full" })
-    .Rms({ windowSize: 10 });
+    .Rms({ mode: "moving", windowSize: 10 });
 
   const startIndividual = performance.now();
   for (let batch = 0; batch < numBatches; batch++) {

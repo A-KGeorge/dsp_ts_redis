@@ -43,7 +43,7 @@ console.log("1. Concurrency Control (Prevent Alert Storms)\n");
     .pipeline({
       onLogBatch: (logs) => router.routeBatch(logs),
     })
-    .MovingAverage({ windowSize: 3 });
+    .MovingAverage({ mode: "moving", windowSize: 3 });
 
   console.log("   Processing with concurrency limit of 2...\n");
 
@@ -91,8 +91,8 @@ console.log("2. Metrics Tracking (Mini-OpenTelemetry)\n");
     .pipeline({
       onLogBatch: (logs) => router.routeBatch(logs),
     })
-    .MovingAverage({ windowSize: 3 })
-    .Rms({ windowSize: 5 });
+    .MovingAverage({ mode: "moving", windowSize: 3 })
+    .Rms({ mode: "moving", windowSize: 5 });
 
   const samples = new Float32Array([1, -2, 3, -4, 5]);
   await pipeline.process(samples, { sampleRate: 1000 });
@@ -150,7 +150,7 @@ console.log("3. Pluggable Backend Handlers\n");
     .pipeline({
       onLogBatch: (logs) => router.routeBatch(logs),
     })
-    .MovingAverage({ windowSize: 3 });
+    .MovingAverage({ mode: "moving", windowSize: 3 });
 
   const samples = new Float32Array([1, 2, 3]);
   await pipeline.process(samples, { sampleRate: 1000 });
@@ -203,9 +203,9 @@ console.log("4. Production-Grade Configuration\n");
     .pipeline({
       onLogBatch: (logs) => router.routeBatch(logs),
     })
-    .MovingAverage({ windowSize: 10 })
+    .MovingAverage({ mode: "moving", windowSize: 10 })
     .Rectify()
-    .Rms({ windowSize: 5 });
+    .Rms({ mode: "moving", windowSize: 5 });
 
   const samples = new Float32Array(50).map(() => Math.random() * 10 - 5);
   await pipeline.process(samples, { sampleRate: 48000 });
@@ -296,7 +296,7 @@ console.log("\n5. Priority-Based Routing (NEW)\n");
     .pipeline({
       onLogBatch: (logs) => router.routeBatch(logs),
     })
-    .MovingAverage({ windowSize: 5 });
+    .MovingAverage({ mode: "moving", windowSize: 5 });
 
   const samples = new Float32Array([1, 2, 3, 4, 5]);
   await pipeline.process(samples, { sampleRate: 1000 });

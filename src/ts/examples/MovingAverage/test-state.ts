@@ -9,7 +9,7 @@ async function testStateManagement() {
 
   // 1. Create pipeline and add stages
   const pipeline = createDspPipeline();
-  pipeline.MovingAverage({ windowSize: 3 });
+  pipeline.MovingAverage({ mode: "moving", windowSize: 3 });
 
   console.log("Pipeline created with moving average filter (window=3)");
 
@@ -47,7 +47,7 @@ async function testStateManagement() {
   // 6. Create new pipeline and load state
   console.log("\n--- Creating New Pipeline ---");
   const pipeline2 = createDspPipeline();
-  pipeline2.MovingAverage({ windowSize: 3 });
+  pipeline2.MovingAverage({ mode: "moving", windowSize: 3 });
 
   console.log("Loading previous state...");
   const loaded = await pipeline2.loadState(stateJson2);

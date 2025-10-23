@@ -20,6 +20,8 @@ export type {
   RedisConfig,
   RmsParams,
   RectifyParams,
+  VarianceParams,
+  ZScoreNormalizeParams,
   PipelineCallbacks,
   LogLevel,
   LogContext,

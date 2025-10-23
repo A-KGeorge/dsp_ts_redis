@@ -32,7 +32,7 @@ async function testStreamingRmsProcessing() {
   console.log("=== Testing Streaming RMS Processing ===\n");
 
   const pipeline = createDspPipeline();
-  pipeline.Rms({ windowSize: 20 }); // Calculate RMS over 20-sample window
+  pipeline.Rms({ mode: "moving", windowSize: 20 }); // Calculate RMS over 20-sample window
 
   console.log("Pipeline created with 20-sample RMS window");
   console.log(
@@ -88,7 +88,7 @@ async function testStreamInterruption() {
   console.log("\n\n=== Testing RMS Stream Interruption & Recovery ===\n");
 
   const pipeline = createDspPipeline();
-  pipeline.Rms({ windowSize: 5 });
+  pipeline.Rms({ mode: "moving", windowSize: 5 });
 
   console.log("Processing first part of stream...");
   let chunk1 = new Float32Array([1, -2, 3, -4, 5]);
@@ -134,7 +134,7 @@ async function testStreamInterruption() {
   // Create new pipeline and restore
   console.log("\nCreating new pipeline and restoring state...");
   const pipeline2 = createDspPipeline();
-  pipeline2.Rms({ windowSize: 5 });
+  pipeline2.Rms({ mode: "moving", windowSize: 5 });
   await pipeline2.loadState(savedState);
   console.log("State restored!");
 
@@ -159,7 +159,7 @@ async function testMultiChannelRmsStreaming() {
   console.log("\n\n=== Testing Multi-Channel RMS Streaming ===\n");
 
   const pipeline = createDspPipeline();
-  pipeline.Rms({ windowSize: 3 });
+  pipeline.Rms({ mode: "moving", windowSize: 3 });
 
   console.log("Processing 2-channel interleaved data stream (RMS per channel)");
   console.log("Format: [ch1_s1, ch2_s1, ch1_s2, ch2_s2, ...]\n");
@@ -196,7 +196,7 @@ async function testEnvelopeDetection() {
   console.log("\n\n=== Testing RMS for Envelope Detection ===\n");
 
   const pipeline = createDspPipeline();
-  pipeline.Rms({ windowSize: 10 }); // 10-sample RMS window for envelope
+  pipeline.Rms({ mode: "moving", windowSize: 10 }); // 10-sample RMS window for envelope
 
   console.log("Use case: Detecting signal envelope/amplitude over time");
   console.log("Input: Amplitude-modulated sine wave\n");

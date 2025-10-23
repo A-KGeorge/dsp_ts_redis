@@ -5,7 +5,7 @@ async function testChaining() {
   console.log("=== Testing DSP Stage Chaining ===\n");
 
   const pipeline = createDspPipeline();
-  pipeline.MovingAverage({ windowSize: 3 }).Rms({ windowSize: 3 }).Rectify();
+  pipeline.MovingAverage({ mode: "moving", windowSize: 3 }).Rms({ mode: "moving", windowSize: 3 }).Rectify();
 
   console.log("Pipeline: MovingAverage → RMS → Rectify");
 
@@ -29,7 +29,7 @@ async function testChaining() {
 
   // Simulate restart
   const pipeline2 = createDspPipeline();
-  pipeline2.MovingAverage({ windowSize: 3 }).Rms({ windowSize: 3 }).Rectify();
+  pipeline2.MovingAverage({ mode: "moving", windowSize: 3 }).Rms({ mode: "moving", windowSize: 3 }).Rectify();
 
   await pipeline2.loadState(state);
   console.log("\nState restored.");

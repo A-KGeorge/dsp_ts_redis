@@ -24,7 +24,7 @@ console.log("1. All Logs (no filter):");
     },
   });
 
-  processor.MovingAverage({ windowSize: 3 }).Rms({ windowSize: 5 });
+  processor.MovingAverage({ mode: "moving", windowSize: 3 }).Rms({ mode: "moving", windowSize: 5 });
 
   const samples = new Float32Array([1, -2, 3, -4, 5]);
   await processor.process(samples, { sampleRate: 1000 });
@@ -43,7 +43,7 @@ console.log("\n2. Filter by Stage (pipeline.stage.rms.*):");
     topicFilter: "pipeline.stage.rms.*", // Only RMS logs
   });
 
-  processor.MovingAverage({ windowSize: 3 }).Rms({ windowSize: 5 });
+  processor.MovingAverage({ mode: "moving", windowSize: 3 }).Rms({ mode: "moving", windowSize: 5 });
 
   const samples = new Float32Array([1, -2, 3, -4, 5]);
   await processor.process(samples, { sampleRate: 1000 });
@@ -66,7 +66,7 @@ console.log("\n3. Filter by Category (Errors Only - *.error):");
     topicFilter: "pipeline.*.error", // Only errors from any stage
   });
 
-  processor.MovingAverage({ windowSize: 3 });
+  processor.MovingAverage({ mode: "moving", windowSize: 3 });
   const samples = new Float32Array([1, 2, 3, 4, 5]);
   await processor.process(samples, { sampleRate: 1000 });
 }
@@ -88,7 +88,7 @@ console.log("\n4. Multiple Topic Filters (Errors + Performance):");
     ],
   });
 
-  processor.MovingAverage({ windowSize: 3 }).Rms({ windowSize: 5 });
+  processor.MovingAverage({ mode: "moving", windowSize: 3 }).Rms({ mode: "moving", windowSize: 5 });
 
   const samples = new Float32Array([1, -2, 3, -4, 5]);
   await processor.process(samples, { sampleRate: 1000 });
@@ -125,7 +125,7 @@ console.log("\n5. Topic-Based Routing (Production Pattern):");
     },
   });
 
-  processor.MovingAverage({ windowSize: 3 }).Rms({ windowSize: 5 });
+  processor.MovingAverage({ mode: "moving", windowSize: 3 }).Rms({ mode: "moving", windowSize: 5 });
 
   const samples = new Float32Array([1, -2, 3, -4, 5]);
   await processor.process(samples, { sampleRate: 1000 });
