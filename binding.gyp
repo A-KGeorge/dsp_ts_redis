@@ -3,7 +3,20 @@
     {
       "target_name": "dsp-ts-redis",
       "sources": [
-        "<!@(node -p \"require('fs').readdirSync('src/native').concat(require('fs').readdirSync('src/native/core').map(f=>'core/'+f), require('fs').readdirSync('src/native/utils').map(f=>'utils/'+f), require('fs').existsSync('src/native/emg') ? require('fs').readdirSync('src/native/emg').map(f=>'emg/'+f) : []).filter(f=>f.endsWith('.cc')).map(f=>'src/native/'+f).join(' ')\")"
+        "src/native/DspPipeline.cc",
+        "src/native/core/MovingAbsoluteValueFilter.cc",
+        "src/native/core/MovingAverageFilter.cc",
+        "src/native/core/MovingVarianceFIlter.cc",
+        "src/native/core/MovingZScoreFilter.cc",
+        "src/native/core/RmsFilter.cc",
+        "src/native/core/SscFilter.cc",
+        "src/native/core/WampFilter.cc",
+        "src/native/core/WaveformLengthFilter.cc",
+        "src/native/utils/CircularBufferArray.cc",
+        "src/native/utils/CircularBufferVector.cc",
+        "src/native/utils/NapiUtils.cc",
+        "src/native/utils/SlidingWindowFilter.cc",
+        "src/native/utils/TimeSeriesBuffer.cc"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",

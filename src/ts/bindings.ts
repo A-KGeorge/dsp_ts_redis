@@ -674,7 +674,11 @@ class DspProcessor {
 
     // Initialize drift detection if enabled
     if (options.enableDriftDetection && timestamps && options.sampleRate) {
-      if (!this.driftDetector) {
+      if (
+        !this.driftDetector ||
+        this.driftDetector.getExpectedSampleRate() !== options.sampleRate
+      ) {
+        // Create new detector if it doesn't exist or sample rate changed
         this.driftDetector = new DriftDetector({
           expectedSampleRate: options.sampleRate,
           driftThreshold: options.driftThreshold ?? 10,

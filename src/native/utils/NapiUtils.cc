@@ -11,8 +11,14 @@ std::vector<T> dsp::utils::NapiArrayToVector(const Napi::Array &arr)
         {
             vec.push_back(arr.Get(j).As<Napi::Boolean>().Value());
         }
+        else if (std::is_same<T, double>::value)
+        {
+            // Use DoubleValue() for double to preserve precision
+            vec.push_back(static_cast<T>(arr.Get(j).As<Napi::Number>().DoubleValue()));
+        }
         else
         {
+            // Use FloatValue() for float types
             vec.push_back(static_cast<T>(arr.Get(j).As<Napi::Number>().FloatValue()));
         }
     }

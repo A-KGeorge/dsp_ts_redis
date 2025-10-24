@@ -1705,7 +1705,57 @@ npm run test           # Run tests
 
 ---
 
-## 📄 License
+## 🌐 Browser Support (Roadmap)
+
+WebAssembly port is planned to enable browser-based real-time audio processing:
+
+- Audio Worklet integration for non-blocking DSP
+- WASM-accelerated spectral analysis
+- Potential integration with live coding platforms (Strudel.cc, Hydra)
+
+Interested in collaborating? Open an issue!
+
+---
+
+## � Recent Bug Fixes & Improvements
+
+### Critical Fixes (October 2025)
+
+#### 1. **Fixed Precision Loss in Double Conversion** (C++)
+
+- **Issue**: `NapiArrayToVector<double>` was using `FloatValue()` instead of `DoubleValue()`, causing 32-bit precision loss
+- **Impact**: Timestamps and high-precision data were truncated from 64-bit to 32-bit
+- **Fix**: Now uses `DoubleValue()` for `double` types and `FloatValue()` for `float` types
+- **File**: `src/native/utils/NapiUtils.cc`
+
+#### 2. **Fixed DriftDetector Sample Rate Bug** (TypeScript)
+
+- **Issue**: When `process()` was called with different `sampleRate` values, the existing `DriftDetector` (configured with the old sample rate) would be reused, causing incorrect drift detection
+- **Impact**: Drift detection would report false positives/negatives when processing streams with varying sample rates
+- **Fix**: Now checks if sample rate changed and recreates the detector when needed
+- **Files**: `src/ts/DriftDetector.ts`, `src/ts/bindings.ts`
+
+#### 3. **Fixed Missing `<numeric>` Header** (C++)
+
+- **Issue**: macOS/Linux builds failed with `error: no member named 'accumulate' in namespace 'std'`
+- **Impact**: CI builds on macOS and Ubuntu failed
+- **Fix**: Added `#include <numeric>` to `Policies.h`
+- **File**: `src/native/core/Policies.h`
+
+#### 4. **Improved Build Reliability** (Build System)
+
+- **Issue**: Dynamic file discovery in `binding.gyp` using `readdirSync()` wouldn't detect new `.cc` files without reconfiguration
+- **Impact**: New source files could be added but not compiled, causing mysterious build failures
+- **Fix**: Explicitly listed all source files in `binding.gyp`
+- **File**: `binding.gyp`
+
+### Testing
+
+All 281 tests pass after these fixes. Run `npm test` to verify.
+
+---
+
+## �📄 License
 
 MIT © Alan Kochukalam George
 

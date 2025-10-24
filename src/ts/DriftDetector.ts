@@ -167,6 +167,13 @@ export class DriftDetector {
   }
 
   /**
+   * Get the expected sample rate configured for this detector
+   */
+  getExpectedSampleRate(): number {
+    return this.options.expectedSampleRate;
+  }
+
+  /**
    * Update internal metrics
    */
   private updateMetrics(deltaMs: number, absoluteDrift: number): void {
