@@ -1,14 +1,14 @@
 # Work in Progress
 
+> The project’s in heavy development.  
+> Once Phases 1 and 2 (core DSP + FFT/IIR/FIR) are stable, I’ll push the first npm release.  
+> Expect breaking changes until then!
+
 # dsp-ts-redis
 
 > **A high-performance DSP library with a built-in micro-framework for real-time pipelines, state persistence, and time-series signal processing. Powered by C++ (via N-API) and Redis for cross-session continuity — ideal for biosignals, IoT, and edge analytics.**
 
 A modern DSP library built for Node.js backends processing real-time biosignals, audio streams, and sensor data. Features native C++ filters with full state serialization to Redis, enabling seamless processing across service restarts and distributed workers.
-
-[![npm version](https://badge.fury.io/js/dsp-ts-redis.svg)](https://www.npmjs.com/package/dsp-ts-redis)
-[![CI Status](https://github.com/yourusername/dsp-ts-redis/workflows/CI/badge.svg)](https://github.com/yourusername/dsp-ts-redis/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ---
 
