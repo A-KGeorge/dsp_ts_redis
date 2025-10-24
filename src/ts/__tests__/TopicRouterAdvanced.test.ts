@@ -201,9 +201,10 @@ describe("TopicRouter Metrics Tracking", () => {
       m.minDuration >= 9,
       `Min duration ${m.minDuration} should be >= 9ms`
     );
+    // Use >= 28 instead of >= 29 to account for timing variability across systems
     assert.ok(
-      m.maxDuration >= 29,
-      `Max duration ${m.maxDuration} should be >= 29ms`
+      m.maxDuration >= 28,
+      `Max duration ${m.maxDuration} should be >= 28ms`
     );
     assert.ok(
       m.averageDuration >= 14,

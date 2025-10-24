@@ -1,4 +1,3 @@
-// src/DspPipeline.cpp
 #include "DspPipeline.h"
 #include "adapters/MovingAverageStage.h"     // Moving Average method
 #include "adapters/RmsStage.h"               // RMS method
