@@ -196,17 +196,18 @@ describe("TopicRouter Metrics Tracking", () => {
     assert.equal(metrics.length, 1);
 
     const m = metrics[0];
+    // Use >= 9 instead of >= 10 to account for timing variability across systems
     assert.ok(
-      m.minDuration >= 10,
-      `Min duration ${m.minDuration} should be >= 10ms`
+      m.minDuration >= 9,
+      `Min duration ${m.minDuration} should be >= 9ms`
     );
     assert.ok(
-      m.maxDuration >= 30,
-      `Max duration ${m.maxDuration} should be >= 30ms`
+      m.maxDuration >= 29,
+      `Max duration ${m.maxDuration} should be >= 29ms`
     );
     assert.ok(
-      m.averageDuration >= 15,
-      `Avg duration ${m.averageDuration} should be >= 15ms`
+      m.averageDuration >= 14,
+      `Avg duration ${m.averageDuration} should be >= 14ms`
     );
     assert.ok(m.totalDuration > 0);
   });

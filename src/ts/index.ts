@@ -14,6 +14,20 @@ export {
   createConsoleHandler,
   createMockHandler,
 } from "./backends.js";
+export {
+  DriftDetector,
+  detectGaps,
+  validateMonotonicity,
+  estimateSampleRate,
+} from "./DriftDetector.js";
+export type {
+  DriftStatistics,
+  DriftDetectorOptions,
+  TimingMetrics,
+  GapDetection,
+  MonotonicityViolation,
+  SampleRateEstimate,
+} from "./DriftDetector.js";
 export type {
   ProcessOptions,
   MovingAverageParams,

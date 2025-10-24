@@ -1,4 +1,17 @@
 /**
+ * Drift statistics for timing diagnostics
+ */
+export interface DriftStatistics {
+  deltaMs: number;
+  expectedMs: number;
+  absoluteDrift: number;
+  relativeDrift: number;
+  sampleIndex: number;
+  currentTimestamp: number;
+  previousTimestamp: number;
+}
+
+/**
  * Options for processing data
  *
  * Two modes supported:
@@ -17,6 +30,24 @@ export interface ProcessOptions {
    * Number of channels in the signal (default: 1)
    */
   channels?: number;
+
+  /**
+   * Enable drift detection for timing diagnostics (default: false)
+   * Only works with explicit timestamps
+   */
+  enableDriftDetection?: boolean;
+
+  /**
+   * Drift threshold percentage (0-100, default: 10%)
+   * Only used when enableDriftDetection is true
+   */
+  driftThreshold?: number;
+
+  /**
+   * Callback when drift is detected
+   * Only used when enableDriftDetection is true
+   */
+  onDriftDetected?: (stats: DriftStatistics) => void;
 }
 
 /**

@@ -17,6 +17,7 @@ import type {
   PipelineStateSummary,
 } from "./types.js";
 import { CircularLogBuffer } from "./CircularLogBuffer.js";
+import { DriftDetector } from "./DriftDetector.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -64,6 +65,7 @@ class DspProcessor {
   private logBuffer: CircularLogBuffer;
   private tapCallbacks: Array<{ stageName: string; callback: TapCallback }> =
     [];
+  private driftDetector: DriftDetector | null = null;
 
   constructor(private nativeInstance: any) {
     // Initialize circular buffer with capacity for typical log volume
@@ -558,6 +560,19 @@ class DspProcessor {
     }
 
     const startTime = performance.now();
+
+    // Initialize drift detection if enabled
+    if (options.enableDriftDetection && timestamps && options.sampleRate) {
+      if (!this.driftDetector) {
+        this.driftDetector = new DriftDetector({
+          expectedSampleRate: options.sampleRate,
+          driftThreshold: options.driftThreshold ?? 10,
+          onDriftDetected: options.onDriftDetected,
+        });
+      }
+      // Process timestamps to detect drift
+      this.driftDetector.processBatch(timestamps);
+    }
 
     try {
       // Pool the start log
