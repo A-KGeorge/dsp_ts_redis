@@ -24,14 +24,18 @@ namespace dsp::adapters
         /**
          * @brief Constructs a new Moving Average Stage.
          * @param mode The averaging mode (Batch or Moving).
-         * @param window_size The window size, required only for 'Moving' mode.
+         * @param window_size The window size in samples (0 if using duration-based).
+         * @param window_duration_ms The window duration in milliseconds (0 if using size-based).
          */
-        explicit MovingAverageStage(AverageMode mode, size_t window_size = 0)
-            : m_mode(mode), m_window_size(window_size)
+        explicit MovingAverageStage(AverageMode mode, size_t window_size = 0, double window_duration_ms = 0.0)
+            : m_mode(mode),
+              m_window_size(window_size),
+              m_window_duration_ms(window_duration_ms),
+              m_is_initialized(window_size > 0) // Initialized if windowSize was provided
         {
-            if (m_mode == AverageMode::Moving && window_size == 0)
+            if (m_mode == AverageMode::Moving && window_size == 0 && window_duration_ms == 0.0)
             {
-                throw std::invalid_argument("MovingAverage: window size must be greater than 0 for 'moving' mode");
+                throw std::invalid_argument("MovingAverage: either window size or window duration must be greater than 0 for 'moving' mode");
             }
         }
 
@@ -221,10 +225,40 @@ namespace dsp::adapters
          * @param buffer The interleaved audio buffer.
          * @param numSamples The total number of samples.
          * @param numChannels The number of channels.
-         * @param timestamps Optional timestamps for time-based processing (currently unused, reserved for future).
+         * @param timestamps Optional timestamps for deriving sample rate on first call.
          */
         void processMoving(float *buffer, size_t numSamples, int numChannels, const float *timestamps)
         {
+            // Lazy initialization: convert windowDuration to windowSize on first call
+            if (!m_is_initialized && m_window_duration_ms > 0.0)
+            {
+                if (timestamps != nullptr && numSamples > 1)
+                {
+                    // Estimate sample rate from timestamps (samples per millisecond)
+                    // Use first few samples to get average delta
+                    size_t samples_to_check = std::min(numSamples, size_t(10));
+                    double total_time_ms = timestamps[samples_to_check - 1] - timestamps[0];
+                    double avg_sample_period_ms = total_time_ms / (samples_to_check - 1);
+                    double estimated_sample_rate = 1000.0 / avg_sample_period_ms; // Hz
+
+                    // Calculate window size: (duration_ms / 1000) * sample_rate
+                    m_window_size = static_cast<size_t>((m_window_duration_ms / 1000.0) * estimated_sample_rate);
+
+                    // Ensure minimum window size of 1
+                    if (m_window_size == 0)
+                    {
+                        m_window_size = 1;
+                    }
+
+                    m_is_initialized = true;
+                }
+                else
+                {
+                    // No timestamps available, cannot derive sample rate
+                    throw std::runtime_error("MovingAverage: windowDuration was set, but timestamps are not available to derive sample rate");
+                }
+            }
+
             // Lazily initialize our filters, one for each channel
             if (m_filters.size() != numChannels)
             {
@@ -237,7 +271,11 @@ namespace dsp::adapters
             }
 
             // Process the buffer sample by sample, de-interleaving
-            // TODO: Use timestamps for time-based window expiration (Phase 2b)
+            // NOTE: Current implementation uses sample-count-based windows.
+            // Time-based window expiration (using timestamps parameter) would require
+            // implementing a time-aware circular buffer that expires samples based on
+            // timestamp differences rather than sample count. This is deferred as it
+            // would require significant architectural changes to all moving window filters.
             for (size_t i = 0; i < numSamples; ++i)
             {
                 int channel = i % numChannels;
@@ -249,6 +287,8 @@ namespace dsp::adapters
 
         AverageMode m_mode;
         size_t m_window_size;
+        double m_window_duration_ms;
+        bool m_is_initialized;
         // We need a separate filter instance for each channel's state
         std::vector<dsp::core::MovingAverageFilter<float>> m_filters;
     };

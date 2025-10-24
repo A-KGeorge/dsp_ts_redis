@@ -59,6 +59,51 @@ namespace dsp::core
     };
 
     /**
+     * @brief Policy for calculating a simple running sum.
+     * Used for features like Waveform Length, WAMP, and SSC.
+     * @tparam T Numeric type
+     */
+    template <typename T>
+    class SumPolicy
+    {
+    public:
+        T add(T newValue)
+        {
+            m_runningSum += newValue;
+            return m_runningSum;
+        }
+        T remove(T oldValue)
+        {
+            m_runningSum -= oldValue;
+            return m_runningSum;
+        }
+        T getResult(size_t /*count*/) const
+        {
+            // Return the total sum, not the mean
+            return m_runningSum;
+        }
+        T getSum() const
+        {
+            return m_runningSum;
+        }
+        void clear()
+        {
+            m_runningSum = static_cast<T>(0.0);
+        }
+        T getState() const
+        {
+            return m_runningSum;
+        }
+        void setState(T state)
+        {
+            m_runningSum = state;
+        }
+
+    private:
+        T m_runningSum{static_cast<T>(0.0)};
+    };
+
+    /**
      * @brief Policy for calculating Mean Absolute Value (MAV).
      *
      * Maintains a running sum of absolute values.

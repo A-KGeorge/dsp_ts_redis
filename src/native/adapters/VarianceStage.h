@@ -23,14 +23,18 @@ namespace dsp::adapters
         /**
          * @brief Constructs a new Variance Stage.
          * @param mode The variance mode (Batch or Moving).
-         * @param window_size The window size, required only for 'Moving' mode.
+         * @param window_size The window size in samples (0 if using duration-based).
+         * @param window_duration_ms The window duration in milliseconds (0 if using size-based).
          */
-        explicit VarianceStage(VarianceMode mode, size_t window_size = 0)
-            : m_mode(mode), m_window_size(window_size)
+        explicit VarianceStage(VarianceMode mode, size_t window_size = 0, double window_duration_ms = 0.0)
+            : m_mode(mode),
+              m_window_size(window_size),
+              m_window_duration_ms(window_duration_ms),
+              m_is_initialized(window_size > 0)
         {
-            if (m_mode == VarianceMode::Moving && window_size == 0)
+            if (m_mode == VarianceMode::Moving && window_size == 0 && window_duration_ms == 0.0)
             {
-                throw std::invalid_argument("Variance: window size must be greater than 0 for 'moving' mode");
+                throw std::invalid_argument("Variance: either window size or window duration must be greater than 0 for 'moving' mode");
             }
         }
 
@@ -226,8 +230,34 @@ namespace dsp::adapters
         /**
          * @brief Statefully processes samples using the moving variance filters.
          */
-        void processMoving(float *buffer, size_t numSamples, int numChannels, const float * /*timestamps*/)
+        void processMoving(float *buffer, size_t numSamples, int numChannels, const float *timestamps)
         {
+            // Lazy initialization: convert windowDuration to windowSize on first call
+            if (!m_is_initialized && m_window_duration_ms > 0.0)
+            {
+                if (timestamps != nullptr && numSamples > 1)
+                {
+                    // Estimate sample rate from timestamps
+                    size_t samples_to_check = std::min(numSamples, size_t(10));
+                    double total_time_ms = timestamps[samples_to_check - 1] - timestamps[0];
+                    double avg_sample_period_ms = total_time_ms / (samples_to_check - 1);
+                    double estimated_sample_rate = 1000.0 / avg_sample_period_ms;
+
+                    m_window_size = static_cast<size_t>((m_window_duration_ms / 1000.0) * estimated_sample_rate);
+
+                    if (m_window_size == 0)
+                    {
+                        m_window_size = 1;
+                    }
+
+                    m_is_initialized = true;
+                }
+                else
+                {
+                    throw std::runtime_error("Variance: windowDuration was set, but timestamps are not available to derive sample rate");
+                }
+            }
+
             // Lazily initialize our filters, one for each channel
             if (m_filters.size() != numChannels)
             {
@@ -250,6 +280,8 @@ namespace dsp::adapters
 
         VarianceMode m_mode;
         size_t m_window_size;
+        double m_window_duration_ms;
+        bool m_is_initialized;
         // We need a separate filter instance for each channel's state
         std::vector<dsp::core::MovingVarianceFilter<float>> m_filters;
     };

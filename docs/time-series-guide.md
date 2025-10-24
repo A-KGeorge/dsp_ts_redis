@@ -136,11 +136,49 @@ pipeline.MovingAverage({
 - Handles irregular sampling naturally
 - Independent of sample rate
 - Perfect for IoT/sensor applications
+- **Automatically adapts to actual sample rate** (derived from timestamps)
 
 **Cons:**
 
 - Slightly more processing overhead
 - Variable memory usage with irregular sampling
+- Requires timestamps to derive sample rate
+
+**Implementation:**
+
+When `windowDuration` is specified, the library uses **lazy initialization**:
+
+1. The stage is created with the duration parameter
+2. On the first `process()` call with timestamps, the sample rate is estimated from the timestamp deltas
+3. The window size is calculated: `windowSize = (windowDuration_ms / 1000) * actual_sample_rate`
+4. The filter is initialized with the correct window size
+
+**Example:**
+
+```typescript
+// User requests 5 second window
+pipeline.MovingAverage({ mode: "moving", windowDuration: 5000 });
+
+// Processing data at 44,100 Hz (CD audio quality)
+const samples = new Float32Array(44100); // 1 second of audio
+const timestamps = new Float32Array(44100);
+for (let i = 0; i < 44100; i++) {
+  timestamps[i] = i * (1000.0 / 44100.0); // ~0.0227 ms per sample
+}
+
+await pipeline.process(samples, timestamps, { channels: 1 });
+
+// Result: windowSize = 220,500 samples (5 seconds at 44.1 kHz) ✓
+```
+
+**Sample Rate Estimation:**
+The library estimates sample rate from the first few timestamp samples:
+
+```
+sample_rate = 1000.0 / avg_sample_period_ms
+```
+
+This approach ensures the window size is correct regardless of your data's sample rate (100 Hz, 1 kHz, 44.1 kHz, etc.).
 
 ### Using Both (Maximum Flexibility)
 

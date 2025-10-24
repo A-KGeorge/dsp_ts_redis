@@ -54,18 +54,20 @@ namespace dsp
             dsp::adapters::AverageMode mode = (modeStr == "moving") ? dsp::adapters::AverageMode::Moving : dsp::adapters::AverageMode::Batch;
 
             size_t windowSize = 0;
+            double windowDurationMs = 0.0;
+
             if (mode == dsp::adapters::AverageMode::Moving)
             {
-                // Accept either windowSize or windowDuration (convert duration to size later)
+                // Accept either windowSize or windowDuration
                 if (params.Has("windowSize"))
                 {
                     windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
                 }
                 else if (params.Has("windowDuration"))
                 {
-                    // TODO: Convert windowDuration to windowSize based on sample rate
-                    // For now, use a reasonable default (this will be improved in Phase 2b)
-                    windowSize = 100; // Placeholder
+                    // Store the duration - will be converted to windowSize on first process() call
+                    // using the actual sample rate derived from timestamps
+                    windowDurationMs = params.Get("windowDuration").As<Napi::Number>().DoubleValue();
                 }
                 else
                 {
@@ -73,7 +75,7 @@ namespace dsp
                 }
             }
 
-            return std::make_unique<dsp::adapters::MovingAverageStage>(mode, windowSize);
+            return std::make_unique<dsp::adapters::MovingAverageStage>(mode, windowSize, windowDurationMs);
         };
 
         // Factory for RMS stage
@@ -83,17 +85,17 @@ namespace dsp
             dsp::adapters::RmsMode mode = (modeStr == "moving") ? dsp::adapters::RmsMode::Moving : dsp::adapters::RmsMode::Batch;
 
             size_t windowSize = 0;
+            double windowDurationMs = 0.0;
+
             if (mode == dsp::adapters::RmsMode::Moving)
             {
-                // Accept either windowSize or windowDuration (convert duration to size later)
                 if (params.Has("windowSize"))
                 {
                     windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
                 }
                 else if (params.Has("windowDuration"))
                 {
-                    // TODO: Convert windowDuration to windowSize based on sample rate
-                    windowSize = 100; // Placeholder
+                    windowDurationMs = params.Get("windowDuration").As<Napi::Number>().DoubleValue();
                 }
                 else
                 {
@@ -101,7 +103,7 @@ namespace dsp
                 }
             }
 
-            return std::make_unique<dsp::adapters::RmsStage>(mode, windowSize);
+            return std::make_unique<dsp::adapters::RmsStage>(mode, windowSize, windowDurationMs);
         };
 
         // Factory for Rectify stage
@@ -119,17 +121,17 @@ namespace dsp
             dsp::adapters::VarianceMode mode = (modeStr == "moving") ? dsp::adapters::VarianceMode::Moving : dsp::adapters::VarianceMode::Batch;
 
             size_t windowSize = 0;
+            double windowDurationMs = 0.0;
+
             if (mode == dsp::adapters::VarianceMode::Moving)
             {
-                // Accept either windowSize or windowDuration
                 if (params.Has("windowSize"))
                 {
                     windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
                 }
                 else if (params.Has("windowDuration"))
                 {
-                    // TODO: Convert windowDuration to windowSize based on sample rate
-                    windowSize = 100; // Placeholder
+                    windowDurationMs = params.Get("windowDuration").As<Napi::Number>().DoubleValue();
                 }
                 else
                 {
@@ -137,7 +139,7 @@ namespace dsp
                 }
             }
 
-            return std::make_unique<dsp::adapters::VarianceStage>(mode, windowSize);
+            return std::make_unique<dsp::adapters::VarianceStage>(mode, windowSize, windowDurationMs);
         };
 
         // Factory for zScoreNormalize stage
@@ -147,17 +149,17 @@ namespace dsp
             dsp::adapters::ZScoreNormalizeMode mode = (modeStr == "moving") ? dsp::adapters::ZScoreNormalizeMode::Moving : dsp::adapters::ZScoreNormalizeMode::Batch;
 
             size_t windowSize = 0;
+            double windowDurationMs = 0.0;
+
             if (mode == dsp::adapters::ZScoreNormalizeMode::Moving)
             {
-                // Accept either windowSize or windowDuration
                 if (params.Has("windowSize"))
                 {
                     windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
                 }
                 else if (params.Has("windowDuration"))
                 {
-                    // TODO: Convert windowDuration to windowSize based on sample rate
-                    windowSize = 100; // Placeholder
+                    windowDurationMs = params.Get("windowDuration").As<Napi::Number>().DoubleValue();
                 }
                 else
                 {
@@ -172,7 +174,7 @@ namespace dsp
                 epsilon = params.Get("epsilon").As<Napi::Number>().FloatValue();
             }
 
-            return std::make_unique<dsp::adapters::ZScoreNormalizeStage>(mode, windowSize, epsilon);
+            return std::make_unique<dsp::adapters::ZScoreNormalizeStage>(mode, windowSize, windowDurationMs, epsilon);
         };
 
         // Factory for Mean Absolute Value stage
@@ -182,17 +184,17 @@ namespace dsp
             dsp::adapters::MavMode mode = (modeStr == "moving") ? dsp::adapters::MavMode::Moving : dsp::adapters::MavMode::Batch;
 
             size_t windowSize = 0;
+            double windowDurationMs = 0.0;
+
             if (mode == dsp::adapters::MavMode::Moving)
             {
-                // Accept either windowSize or windowDuration
                 if (params.Has("windowSize"))
                 {
                     windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
                 }
                 else if (params.Has("windowDuration"))
                 {
-                    // TODO: Convert windowDuration to windowSize based on sample rate
-                    windowSize = 100; // Placeholder
+                    windowDurationMs = params.Get("windowDuration").As<Napi::Number>().DoubleValue();
                 }
                 else
                 {
@@ -200,7 +202,7 @@ namespace dsp
                 }
             }
 
-            return std::make_unique<dsp::adapters::MeanAbsoluteValueStage>(mode, windowSize);
+            return std::make_unique<dsp::adapters::MeanAbsoluteValueStage>(mode, windowSize, windowDurationMs);
         };
     }
 
