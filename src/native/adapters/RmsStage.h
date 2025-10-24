@@ -2,6 +2,7 @@
 
 #include "../IDspStage.h"
 #include "../core/RmsFilter.h"
+#include "../utils/SimdOps.h"
 #include <vector>
 #include <stdexcept>
 #include <cmath>
@@ -175,6 +176,7 @@ namespace dsp::adapters
         /**
          * @brief Statelessly calculates the RMS for each channel
          * and overwrites all samples in that channel with the result.
+         * Uses SIMD-optimized sum of squares for better performance.
          */
         void processBatch(float *buffer, size_t numSamples, int numChannels)
         {
@@ -186,20 +188,26 @@ namespace dsp::adapters
 
                 double sum_sq = 0.0;
 
-                // First pass: Calculate sum of squares
-                for (size_t i = c; i < numSamples; i += numChannels)
+                // For single-channel, use SIMD-optimized sum of squares
+                if (numChannels == 1)
                 {
-                    double val = static_cast<double>(buffer[i]);
-                    sum_sq += val * val;
+                    sum_sq = dsp::simd::sum_of_squares(buffer, numSamples);
+                }
+                else
+                {
+                    // Multi-channel: strided access
+                    for (size_t i = c; i < numSamples; i += numChannels)
+                    {
+                        double val = static_cast<double>(buffer[i]);
+                        sum_sq += val * val;
+                    }
                 }
 
-                // Calculate mean of squares
+                // Calculate mean of squares and RMS
                 double mean_sq = sum_sq / numSamplesPerChannel;
-
-                // Calculate RMS
                 float rms = static_cast<float>(std::sqrt(std::max(0.0, mean_sq)));
 
-                // Second pass: Fill this channel's buffer with the single RMS value
+                // Fill this channel's buffer with the RMS value
                 for (size_t i = c; i < numSamples; i += numChannels)
                 {
                     buffer[i] = rms;

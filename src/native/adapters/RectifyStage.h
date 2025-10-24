@@ -1,5 +1,6 @@
 #pragma once
 #include "../IDspStage.h"
+#include "../utils/SimdOps.h"
 #include <cmath>
 #include <stdexcept>
 
@@ -38,20 +39,19 @@ namespace dsp::adapters
 
         /**
          * @brief Applies in-place rectification based on the configured mode.
+         * Uses SIMD-optimized operations for better performance.
          */
         void process(float *buffer, size_t numSamples, int /*numChannels*/, const float * /*timestamps*/ = nullptr) override
         {
-            for (size_t i = 0; i < numSamples; ++i)
+            // Use SIMD-optimized operations for best performance
+            switch (m_mode)
             {
-                switch (m_mode)
-                {
-                case RectifyMode::FullWave:
-                    buffer[i] = std::fabs(buffer[i]);
-                    break;
-                case RectifyMode::HalfWave:
-                    buffer[i] = std::max(0.0f, buffer[i]);
-                    break;
-                }
+            case RectifyMode::FullWave:
+                dsp::simd::abs_inplace(buffer, numSamples);
+                break;
+            case RectifyMode::HalfWave:
+                dsp::simd::max_zero_inplace(buffer, numSamples);
+                break;
             }
         }
 

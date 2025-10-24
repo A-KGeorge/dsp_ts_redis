@@ -2,7 +2,7 @@
 
 # dsp-ts-redis
 
-> **High-performance digital signal processing for TypeScript with native C++ acceleration and Redis state persistence**
+> **A high-performance DSP library with a built-in micro-framework for real-time pipelines, state persistence, and time-series signal processing. Powered by C++ (via N-API) and Redis for cross-session continuity — ideal for biosignals, IoT, and edge analytics.**
 
 A modern DSP library built for Node.js backends processing real-time biosignals, audio streams, and sensor data. Features native C++ filters with full state serialization to Redis, enabling seamless processing across service restarts and distributed workers.
 
@@ -14,7 +14,8 @@ A modern DSP library built for Node.js backends processing real-time biosignals,
 
 ## ✨ Features
 
-- 🚀 **Native C++ Performance** – Optimized circular buffers and filters for real-time processing
+- 🚀 **Native C++ Performance** – Optimized circular buffers and filters with SIMD acceleration for real-time processing
+- 🎯 **SIMD Acceleration** – AVX2/SSE2/NEON optimizations provide 2-8x speedup on batch operations and rectification
 - 🔧 **TypeScript-First** – Full type safety with excellent IntelliSense
 - 📡 **Redis State Persistence** – Fully implemented state serialization/deserialization including circular buffer contents and running sums
 - ⏱️ **Time-Series Processing** – NEW! Support for irregular timestamps and time-based windows
@@ -337,6 +338,8 @@ const output = await pipeline.process(input, {
 | Native processing (no callbacks) | 22M samples/sec  | ✅ Maximum performance            |
 | Batched callbacks                | 3.2M samples/sec | ✅ **Recommended** for production |
 | Individual callbacks             | 6.1M samples/sec | ⚠️ Development/debugging only     |
+
+**SIMD Acceleration:** Batch operations and rectification are 2-8x faster with AVX2/SSE2/NEON. See [SIMD_OPTIMIZATIONS.md](docs/SIMD_OPTIMIZATIONS.md) for details.
 
 **Recommendation:** Use batched callbacks in production. Individual callbacks benchmark faster but block the Node.js event loop and can't integrate with real telemetry systems (Kafka, Datadog, Loki).
 
@@ -1414,8 +1417,9 @@ Contributions are welcome! This project is in active development.
 git clone https://github.com/yourusername/dsp-ts-redis.git
 cd dsp-ts-redis
 npm install
-npm run build          # Compile C++ with cmake-js
+npm run build-gyp      # Compile C++ with cmake-js
 npm run dev            # Watch mode for development
+npm run test           # Run tests
 ```
 
 ---
@@ -1431,7 +1435,7 @@ MIT © Alan Kochukalam George
 Built with:
 
 - [N-API](https://nodejs.org/api/n-api.html) and [node-addon-api](https://github.com/nodejs/node-addon-api) for native bindings
-- [cmake-js](https://github.com/cmake-js/cmake-js) for C++ compilation
+- [node-gyp](https://github.com/nodejs/node-gyp) for cross platform C++ compilation
 - [Redis](https://redis.io/) for state persistence
 - [TypeScript](https://www.typescriptlang.org/) for type safety
 

@@ -8,8 +8,8 @@ This roadmap outlines the planned evolution of **dsp-ts-redis** — a native **C
 
 - [x] **Redis Integration (Serialization / Deserialization)**
 - [x] **Advanced Logging (Circular Buffer, Topic Routing, Concurrency)**
-- [x] **Core DSP Filters:** `movingAverage`, `rms`, `rectify`
-- [x] **Utility:** `listState`
+- [x] **Core DSP Filters:** `movingAverage`, `rms`, `rectify`, `variance`, `zScoreNormalize`, `mav`, `waveformLength`, `willisonAmplitude`, `slopeSignChange`
+- [x] **Utility:** `listState`, `clearState`, `getState`, `saveState`
 
 ---
 
@@ -38,32 +38,32 @@ This roadmap outlines the planned evolution of **dsp-ts-redis** — a native **C
 
 ### 🟩 **Stage 1 — MVP / Easy**
 
-| Priority | Category                                                 | Status        | Notes                                 |
-| -------- | -------------------------------------------------------- | ------------- | ------------------------------------- |
-| 1️⃣       | `movingAverage`, `rms`, `rectify`, `variance`            | [X] (partial) | Baseline DSP primitives (C++ + N-API) |
-| 2️⃣       | `waveformLength`, `willisonAmplitude`, `slopeSignChange` | [ ]           | Next EMG feature set                  |
-| 3️⃣       | `clearState`, `getState`, `listState`                    | [X]           | Complete Redis debug utilities        |
+| Priority | Category                                                 | Status | Notes                                 |
+| -------- | -------------------------------------------------------- | ------ | ------------------------------------- |
+| 1️⃣       | `movingAverage`, `rms`, `rectify`, `variance`            | [X]    | Baseline DSP primitives (C++ + N-API) |
+| 2️⃣       | `waveformLength`, `willisonAmplitude`, `slopeSignChange` | [ ]    | Next EMG feature set                  |
+| 3️⃣       | `clearState`, `getState`, `listState`, `saveState`       | [X]    | Complete Redis debug utilities        |
 
 ---
 
 ### 🟨 **Stage 2 — Intermediate (Math + Buffer Dependent)**
 
-| Priority | Category                                              | Status | Notes                                |
-| -------- | ----------------------------------------------------- | ------ | ------------------------------------ |
-| 4️⃣       | `zScoreNormalize`, `mav`, `hjorthParameters`          | [ ]    | Window math & standard deviation ops |
-| 5️⃣       | `polyphaseDecimate`, `interpolate`, `resample`        | [ ]    | Leverage circular buffers            |
-| 6️⃣       | `spectralCentroid`, `spectralRolloff`, `spectralFlux` | [ ]    | Derived FFT metrics                  |
-| 7️⃣       | `entropy`, `sampleEntropy`, `approximateEntropy`      | [ ]    | Complexity metrics per window        |
+| Priority | Category                                              | Status        | Notes                                |
+| -------- | ----------------------------------------------------- | ------------- | ------------------------------------ |
+| 4️⃣       | `zScoreNormalize`, `mav`, `hjorthParameters`          | [X] (partial) | Window math & standard deviation ops |
+| 5️⃣       | `polyphaseDecimate`, `interpolate`, `resample`        | [ ]           | Leverage circular buffers            |
+| 6️⃣       | `spectralCentroid`, `spectralRolloff`, `spectralFlux` | [ ]           | Derived FFT metrics                  |
+| 7️⃣       | `entropy`, `sampleEntropy`, `approximateEntropy`      | [ ]           | Complexity metrics per window        |
 
 ---
 
 ### 🔴 **Stage 3 — Advanced DSP / FFT / Wavelets**
 
-| Priority | Category                                         | Status | Notes                          |
-| -------- | ------------------------------------------------ | ------ | ------------------------------ |
-| 8️⃣       | `fft`, `hilbertTransform`, `hilbertEnvelope`     | [ ]    | Transform foundation           |
-| 9️⃣       | `firFilter`, `butterworthLowpass`, `notchFilter` | [ ]    | Real-world filter validation   |
-| 🔟       | `waveletTransform`, `haar`, `db2–db10`           | [ ]    | Decomposition + reconstruction |
+| Priority | Category                                                     | Status | Notes                          |
+| -------- | ------------------------------------------------------------ | ------ | ------------------------------ |
+| 8️⃣       | `fft`, `hilbertTransform`, `hilbertEnvelope`                 | [ ]    | Transform foundation           |
+| 9️⃣       | `firFilter`, `butterworthFilter`, `notchFilter`, `iirFilter` | [ ]    | Real-world filter validation   |
+| 🔟       | `waveletTransform`, `haar`, `db2–db10`                       | [ ]    | Decomposition + reconstruction |
 
 ---
 

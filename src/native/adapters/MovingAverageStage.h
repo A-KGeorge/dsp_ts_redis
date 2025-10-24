@@ -2,6 +2,7 @@
 
 #include "../IDspStage.h"
 #include "../core/MovingAverageFilter.h"
+#include "../utils/SimdOps.h"
 #include <vector>
 #include <stdexcept>
 #include <cmath>
@@ -176,6 +177,7 @@ namespace dsp::adapters
         /**
          * @brief Statelessly calculates the average for each channel
          * and overwrites all samples in that channel with the result.
+         * Uses SIMD-optimized summation for better performance.
          */
         void processBatch(float *buffer, size_t numSamples, int numChannels)
         {
@@ -187,16 +189,26 @@ namespace dsp::adapters
 
                 double sum = 0.0;
 
-                // First pass: Calculate sum
-                for (size_t i = c; i < numSamples; i += numChannels)
+                // For single-channel or well-aligned data, use SIMD sum
+                if (numChannels == 1)
                 {
-                    sum += static_cast<double>(buffer[i]);
+                    // Fast path: contiguous memory
+                    sum = dsp::simd::sum(buffer, numSamples);
+                }
+                else
+                {
+                    // Multi-channel: strided access (compiler can still auto-vectorize)
+                    for (size_t i = c; i < numSamples; i += numChannels)
+                    {
+                        sum += static_cast<double>(buffer[i]);
+                    }
                 }
 
                 // Calculate average
                 float average = static_cast<float>(sum / numSamplesPerChannel);
 
-                // Second pass: Fill this channel's buffer with the single average value
+                // Fill this channel's buffer with the single average value
+                // For single channel, memset equivalent is very fast
                 for (size_t i = c; i < numSamples; i += numChannels)
                 {
                     buffer[i] = average;
