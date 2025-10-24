@@ -9,7 +9,7 @@
  * to account for V8 JIT compilation and CPU thermal throttling.
  */
 
-import { DspProcessor } from "../bindings.js";
+import { createDspPipeline } from "../bindings.js";
 
 console.log("🚀 SIMD Performance Demonstration");
 console.log("===================================\n");
@@ -33,9 +33,8 @@ async function demonstrateSIMD() {
 
   // Test 1: Rectify (SIMD-accelerated)
   console.log("🔧 Test 1: Rectify (Full-Wave) - SIMD Accelerated");
-  const processor1 = new DspProcessor([
-    { method: "rectify", params: { mode: "full" } },
-  ]);
+  const processor1 = createDspPipeline();
+  processor1.Rectify({ mode: "full" });
 
   const start1 = performance.now();
   for (let i = 0; i < ITERATIONS; i++) {
@@ -53,9 +52,8 @@ async function demonstrateSIMD() {
 
   // Test 2: Batch Average (SIMD-accelerated for single channel)
   console.log("🔧 Test 2: Batch Average - SIMD Accelerated");
-  const processor2 = new DspProcessor([
-    { method: "movingAverage", params: { mode: "batch" } },
-  ]);
+  const processor2 = createDspPipeline();
+  processor2.MovingAverage({ mode: "batch" });
 
   const start2 = performance.now();
   for (let i = 0; i < ITERATIONS; i++) {
@@ -73,9 +71,8 @@ async function demonstrateSIMD() {
 
   // Test 3: Batch RMS (SIMD-accelerated for single channel)
   console.log("🔧 Test 3: Batch RMS - SIMD Accelerated");
-  const processor3 = new DspProcessor([
-    { method: "rms", params: { mode: "batch" } },
-  ]);
+  const processor3 = createDspPipeline();
+  processor3.Rms({ mode: "batch" });
 
   const start3 = performance.now();
   for (let i = 0; i < ITERATIONS; i++) {
