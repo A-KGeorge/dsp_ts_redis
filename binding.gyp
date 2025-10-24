@@ -1,7 +1,7 @@
 {
   "targets": [
     {
-      "target_name": "dsp-js-native",
+      "target_name": "dsp-ts-redis",
       "sources": [
         "<!@(node -p \"require('fs').readdirSync('src/native').concat(require('fs').readdirSync('src/native/core').map(f=>'core/'+f), require('fs').readdirSync('src/native/utils').map(f=>'utils/'+f), require('fs').existsSync('src/native/emg') ? require('fs').readdirSync('src/native/emg').map(f=>'emg/'+f) : []).filter(f=>f.endsWith('.cc')).map(f=>'src/native/'+f).join(' ')\")"
       ],

@@ -17,7 +17,7 @@ The DSP library now supports **time-series processing** with explicit timestamps
 ### Legacy Sample-Based (Still Works!)
 
 ```typescript
-import { createDspPipeline } from "dsp-js-native";
+import { createDspPipeline } from "dsp-ts-redis";
 
 const pipeline = createDspPipeline();
 pipeline.MovingAverage({ mode: "moving", windowSize: 100 });
@@ -34,7 +34,7 @@ await pipeline.process(samples, {
 ### New Time-Based Processing
 
 ```typescript
-import { createDspPipeline } from "dsp-js-native";
+import { createDspPipeline } from "dsp-ts-redis";
 
 const pipeline = createDspPipeline();
 // Use time-based window instead of sample count
@@ -230,7 +230,7 @@ await pipeline.process(samples, timestamps, { channels: 2 });
 ### IoT Sensor with Network Jitter
 
 ```typescript
-import { createDspPipeline } from "dsp-js-native";
+import { createDspPipeline } from "dsp-ts-redis";
 
 const pipeline = createDspPipeline();
 pipeline.MovingAverage({ mode: "moving", windowDuration: 10000 }); // 10 second window
@@ -311,7 +311,7 @@ const processed = await pipeline.process(emgSignal, timestamps, {
 Time-series processing works seamlessly with Redis state persistence:
 
 ```typescript
-import { createDspPipeline } from "dsp-js-native";
+import { createDspPipeline } from "dsp-ts-redis";
 import { createClient } from "redis";
 
 const redis = createClient();

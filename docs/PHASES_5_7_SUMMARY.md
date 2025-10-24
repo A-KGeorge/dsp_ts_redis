@@ -285,7 +285,7 @@ await writer.createAggregation("myovine:emg:rms", "AVG", 1000);
 ### Quick Start: Basic Drift Detection
 
 ```typescript
-import { createDspPipeline } from "dsp-js-native";
+import { createDspPipeline } from "dsp-ts-redis";
 
 const pipeline = createDspPipeline();
 pipeline.MovingAverage({ mode: "moving", windowDuration: 100 });
@@ -304,7 +304,7 @@ await pipeline.process(samples, timestamps, {
 ### Quick Start: Production Monitoring
 
 ```typescript
-import { DriftDetector, detectGaps, validateMonotonicity } from "dsp-js-native";
+import { DriftDetector, detectGaps, validateMonotonicity } from "dsp-ts-redis";
 
 const detector = new DriftDetector({
   expectedSampleRate: 100,
@@ -325,7 +325,7 @@ console.log(`Violations: ${violations.length}`);
 ### Quick Start: RedisTimeSeries
 
 ```typescript
-import { createDspPipeline } from "dsp-js-native";
+import { createDspPipeline } from "dsp-ts-redis";
 import { createClient } from "redis";
 
 const redis = await createClient().connect();

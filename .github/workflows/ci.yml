@@ -50,7 +50,7 @@ jobs:
       - name: Copy native addon to src/build
         run: |
           mkdir -p src/build
-          cp build/Release/dsp-js-native.node src/build/
+          cp build/Release/dsp-ts-redis.node src/build/
 
       - name: Wait for Redis
         run: |
@@ -115,7 +115,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p src/build
-          cp build/Release/dsp-js-native.node src/build/
+          cp build/Release/dsp-ts-redis.node src/build/
 
       - name: Run all tests (Redis tests will skip if unavailable)
         run: npm test

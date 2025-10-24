@@ -80,7 +80,7 @@ This roadmap outlines the planned evolution of **dsp-ts-redis** — a native **C
 ## 📁 3. Suggested Project Structure
 
 ```
-DSP-JS-NATIVE/
+dsp-ts-redis/
 ├── src/
 │   ├── native/
 │   │   ├── core/
