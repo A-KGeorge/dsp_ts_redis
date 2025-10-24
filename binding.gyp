@@ -6,7 +6,7 @@
         "src/native/DspPipeline.cc",
         "src/native/core/MovingAbsoluteValueFilter.cc",
         "src/native/core/MovingAverageFilter.cc",
-        "src/native/core/MovingVarianceFIlter.cc",
+        "src/native/core/MovingVarianceFilter.cc",
         "src/native/core/MovingZScoreFilter.cc",
         "src/native/core/RmsFilter.cc",
         "src/native/core/SscFilter.cc",
