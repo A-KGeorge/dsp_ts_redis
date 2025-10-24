@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <stdexcept>
+#include <memory>
 
 namespace dsp::utils
 {
@@ -16,9 +17,9 @@ namespace dsp::utils
         CircularBufferArray(const CircularBufferArray &other) = delete;            // disable copy to avoid shallow copy
         CircularBufferArray &operator=(const CircularBufferArray &other) = delete; // disable copy assignment to avoid shallow copy
 
-        // move semantics
-        CircularBufferArray(CircularBufferArray &&other) noexcept;
-        CircularBufferArray &operator=(CircularBufferArray &&other) noexcept;
+        // move semantics (defaulted - compiler generated is now safe with unique_ptr)
+        CircularBufferArray(CircularBufferArray &&other) noexcept = default;
+        CircularBufferArray &operator=(CircularBufferArray &&other) noexcept = default;
 
         // methods
         bool push(const T &item);
@@ -37,11 +38,11 @@ namespace dsp::utils
         std::vector<T> toVector() const;
         void fromVector(const std::vector<T> &data);
 
-        // destructor
-        ~CircularBufferArray();
+        // destructor (defaulted - unique_ptr handles cleanup automatically)
+        ~CircularBufferArray() = default;
 
     private:
-        T *buffer;
+        std::unique_ptr<T[]> buffer;
         size_t head;
         size_t tail;
         size_t capacity;

@@ -1,73 +1,29 @@
 #include "CircularBufferArray.h"
 #include <algorithm>
 #include <stdexcept>
+#include <memory>
 
 using namespace dsp::utils;
 
 // -----------------------------------------------------------------------------
 // Constructor
-// Initializes the circular buffer with a specified size
+// Initializes the circular buffer with a specified size using std::make_unique
 // @ param size - The size of the circular buffer
 // @ return void
 // -----------------------------------------------------------------------------
 template <typename T>
 CircularBufferArray<T>::CircularBufferArray(size_t size)
-    : head(0), tail(0), capacity(std::max(size, static_cast<size_t>(1))), count(0)
+    : buffer(std::make_unique<T[]>(std::max(size, static_cast<size_t>(1)))),
+      head(0),
+      tail(0),
+      capacity(std::max(size, static_cast<size_t>(1))),
+      count(0)
 {
-    this->buffer = new T[this->capacity]();
+    // Buffer is automatically initialized by make_unique
 }
 
-// -----------------------------------------------------------------------------
-// Move Constructor
-// Transfers ownership of resources from another CircularBufferArray
-// @ param other - The CircularBufferArray to move from
-// -----------------------------------------------------------------------------
-template <typename T>
-CircularBufferArray<T>::CircularBufferArray(CircularBufferArray &&other) noexcept
-    : buffer(other.buffer),
-      head(other.head),
-      tail(other.tail),
-      capacity(other.capacity),
-      count(other.count)
-{
-    // Reset the other object to a valid but empty state
-    other.buffer = nullptr;
-    other.head = 0;
-    other.tail = 0;
-    other.capacity = 0;
-    other.count = 0;
-}
-
-// -----------------------------------------------------------------------------
-// Move Assignment Operator
-// Transfers ownership of resources from another CircularBufferArray
-// @ param other - The CircularBufferArray to move from
-// @ return CircularBufferArray& - Reference to this object
-// -----------------------------------------------------------------------------
-template <typename T>
-CircularBufferArray<T> &CircularBufferArray<T>::operator=(CircularBufferArray &&other) noexcept
-{
-    if (this != &other)
-    {
-        // Clean up existing resources
-        delete[] buffer;
-
-        // Transfer ownership
-        buffer = other.buffer;
-        head = other.head;
-        tail = other.tail;
-        capacity = other.capacity;
-        count = other.count;
-
-        // Reset the other object to a valid but empty state
-        other.buffer = nullptr;
-        other.head = 0;
-        other.tail = 0;
-        other.capacity = 0;
-        other.count = 0;
-    }
-    return *this;
-}
+// Note: Move constructor and move assignment operator are now defaulted in the header
+// std::unique_ptr handles move semantics correctly by default
 
 // -----------------------------------------------------------------------------
 // Method: push
@@ -236,14 +192,8 @@ void CircularBufferArray<T>::fromVector(const std::vector<T> &data)
     }
 }
 
-// -----------------------------------------------------------------------------
-// Destructor
-// Cleans up the circular buffer
-template <typename T>
-CircularBufferArray<T>::~CircularBufferArray()
-{
-    delete[] this->buffer;
-}
+// Note: Destructor is now defaulted in the header
+// std::unique_ptr automatically cleans up the buffer
 
 // Explicit template instantiation for common types
 namespace dsp::utils

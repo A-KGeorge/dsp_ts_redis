@@ -4,87 +4,13 @@ This document tracks known issues, architectural concerns, and improvement oppor
 
 ## 🔴 High Priority Issues
 
-### 1. Manual Memory Management in CircularBufferArray
-
-**Status**: Not Fixed (Lower Risk)  
-**Location**: `src/native/utils/CircularBufferArray.h/cc`
-
-**Issue**: Uses raw `new[]`/`delete[]` for buffer management, which is risky and unidiomatic in modern C++.
-
-```cpp
-// Current implementation
-T *buffer;  // Raw pointer
-
-// In constructor:
-buffer = new T[capacity];
-
-// In destructor:
-delete[] buffer;
-```
-
-**Risk**: While copy constructor/assignment are deleted (preventing shallow copies), this is fragile. If someone accidentally adds a copy constructor later, it could lead to double-free errors.
-
-**Recommendation**: Replace with `std::vector<T>` or `std::unique_ptr<T[]>`:
-
-```cpp
-// Option 1: std::vector (simplest)
-std::vector<T> buffer;
-
-// In constructor:
-buffer.resize(capacity);
-
-// No destructor needed - Rule of Zero!
-
-// Option 2: std::unique_ptr (if raw performance critical)
-std::unique_ptr<T[]> buffer;
-
-// In constructor:
-buffer = std::make_unique<T[]>(capacity);
-```
-
-**Benefits**:
-
-- Automatic memory management (Rule of Zero)
-- No manual destructor needed
-- Eliminates double-free risk
-- Still maintains performance
+**All high priority issues have been resolved! 🎉**
 
 ---
 
 ## 🟡 Medium Priority Issues
 
-### 2. Dual Build Systems (node-gyp + cmake-js)
-
-**Status**: Not Fixed (Configuration Issue)  
-**Location**: `package.json`, `binding.gyp`, `CMakeLists.txt`
-
-**Issue**: Project contains both `node-gyp` and `cmake-js` build configurations:
-
-- `"build": "cmake-js compile"`
-- `"build-gyp": "node-gyp rebuild"`
-
-**Impact**:
-
-- Confusing for new contributors
-- Maintenance overhead (two build configs to keep in sync)
-- Unclear which is the "primary" build system
-
-**Recommendation**: Choose one:
-
-- **Recommended**: Keep `node-gyp` (better npm ecosystem integration, used by most native Node.js modules)
-- Remove `cmake-js` and `CMakeLists.txt`
-- Update all documentation to use one system
-
-**Migration Steps**:
-
-1. Document decision in README
-2. Remove unused build system files
-3. Update package.json scripts
-4. Update CI/CD pipelines
-
----
-
-### 3. Custom Module Loader vs node-gyp-build
+### 1. Custom Module Loader vs node-gyp-build
 
 **Status**: Not Fixed (Technical Debt)  
 **Location**: `src/ts/bindings.ts` (lines 28-49)
@@ -128,7 +54,7 @@ const DspAddon = require("node-gyp-build")(join(__dirname, "../.."));
 
 ---
 
-### 4. Dead Code in DspPipeline::ProcessAsync
+### 2. Dead Code in DspPipeline::ProcessAsync
 
 **Status**: Not Fixed (Code Cleanup)  
 **Location**: `src/native/DspPipeline.cc`
@@ -166,7 +92,7 @@ if (!timestamps) {
 
 ## 🟢 Low Priority / Future Improvements
 
-### 5. Brittle State Validation in LoadState
+### 3. Brittle State Validation in LoadState
 
 **Status**: Not Fixed (Design Decision)  
 **Location**: `src/native/DspPipeline.cc` - `LoadState` method
@@ -192,25 +118,35 @@ if (!timestamps) {
 
 ## ✅ Fixed Issues
 
-### ~~1. Precision Loss in NapiArrayToVector<double>~~
+### ~~1. Manual Memory Management in CircularBufferArray~~
+
+**Status**: ✅ FIXED (October 2025)  
+**Fix**: Replaced raw `T* buffer` with `std::unique_ptr<T[]>`, eliminated manual destructor and move operations (now use compiler-generated defaults per Rule of Zero)
+
+### ~~2. Precision Loss in NapiArrayToVector<double>~~
 
 **Status**: ✅ FIXED (October 2025)  
 **Fix**: Now uses `DoubleValue()` for double types
 
-### ~~2. DriftDetector Sample Rate Bug~~
+### ~~3. DriftDetector Sample Rate Bug~~
 
 **Status**: ✅ FIXED (October 2025)  
 **Fix**: Now checks if sample rate changed and recreates detector
 
-### ~~3. Missing <numeric> Header~~
+### ~~4. Missing <numeric> Header~~
 
 **Status**: ✅ FIXED (October 2025)  
 **Fix**: Added `#include <numeric>` to Policies.h
 
-### ~~4. Fragile Build Configuration~~
+### ~~5. Fragile Build Configuration~~
 
 **Status**: ✅ FIXED (October 2025)  
 **Fix**: Explicitly listed all source files in binding.gyp
+
+### ~~6. Dual Build Systems (node-gyp + cmake-js)~~
+
+**Status**: ✅ FIXED (October 2025)
+**Fix**: Removed cmake-js build system
 
 ---
 

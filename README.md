@@ -1698,7 +1698,7 @@ Contributions are welcome! This project is in active development.
 git clone https://github.com/yourusername/dsp-ts-redis.git
 cd dsp-ts-redis
 npm install
-npm run build-gyp      # Compile C++ with cmake-js
+npm run build      # Compile C++ with cmake-js
 npm run dev            # Watch mode for development
 npm run test           # Run tests
 ```
