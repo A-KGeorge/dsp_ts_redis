@@ -5,6 +5,9 @@
 #include "adapters/VarianceStage.h"          // Variance method
 #include "adapters/ZScoreNormalizeStage.h"   // Z-Score Normalize method
 #include "adapters/MeanAbsoluteValueStage.h" // Mean Absolute Value method
+#include "adapters/WaveformLengthStage.h"    // Waveform Length method
+#include "adapters/SscStage.h"               // Slope Sign Change method
+#include "adapters/WampStage.h"              // Willison Amplitude method
 
 #include <iostream>
 #include <ctime>
@@ -203,6 +206,53 @@ namespace dsp
             }
 
             return std::make_unique<dsp::adapters::MeanAbsoluteValueStage>(mode, windowSize, windowDurationMs);
+        };
+
+        // Factory for Waveform Length stage
+        m_stageFactories["waveformLength"] = [](const Napi::Object &params)
+        {
+            if (!params.Has("windowSize"))
+            {
+                throw std::invalid_argument("WaveformLength: 'windowSize' is required");
+            }
+            size_t windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+            return std::make_unique<dsp::adapters::WaveformLengthStage>(windowSize);
+        };
+
+        // Factory for Slope Sign Change (SSC) stage
+        m_stageFactories["slopeSignChange"] = [](const Napi::Object &params)
+        {
+            if (!params.Has("windowSize"))
+            {
+                throw std::invalid_argument("SlopeSignChange: 'windowSize' is required");
+            }
+            size_t windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+
+            float threshold = 0.0f;
+            if (params.Has("threshold"))
+            {
+                threshold = params.Get("threshold").As<Napi::Number>().FloatValue();
+            }
+
+            return std::make_unique<dsp::adapters::SscStage>(windowSize, threshold);
+        };
+
+        // Factory for Willison Amplitude (WAMP) stage
+        m_stageFactories["willisonAmplitude"] = [](const Napi::Object &params)
+        {
+            if (!params.Has("windowSize"))
+            {
+                throw std::invalid_argument("WillisonAmplitude: 'windowSize' is required");
+            }
+            size_t windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+
+            float threshold = 0.0f;
+            if (params.Has("threshold"))
+            {
+                threshold = params.Get("threshold").As<Napi::Number>().FloatValue();
+            }
+
+            return std::make_unique<dsp::adapters::WampStage>(windowSize, threshold);
         };
     }
 

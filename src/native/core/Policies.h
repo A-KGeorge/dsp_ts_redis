@@ -59,48 +59,111 @@ namespace dsp::core
     };
 
     /**
-     * @brief Policy for calculating a simple running sum.
-     * Used for features like Waveform Length, WAMP, and SSC.
-     * @tparam T Numeric type
+     * @brief Policy for SlidingWindowFilter that maintains a running sum.
+     * @tparam T The numeric type (e.g., float, double).
      */
     template <typename T>
-    class SumPolicy
+    struct SumPolicy
     {
-    public:
-        T add(T newValue)
+        double m_sum = 0.0;
+
+        void onAdd(T value)
         {
-            m_runningSum += newValue;
-            return m_runningSum;
-        }
-        T remove(T oldValue)
-        {
-            m_runningSum -= oldValue;
-            return m_runningSum;
-        }
-        T getResult(size_t /*count*/) const
-        {
-            // Return the total sum, not the mean
-            return m_runningSum;
-        }
-        T getSum() const
-        {
-            return m_runningSum;
-        }
-        void clear()
-        {
-            m_runningSum = static_cast<T>(0.0);
-        }
-        T getState() const
-        {
-            return m_runningSum;
-        }
-        void setState(T state)
-        {
-            m_runningSum = state;
+            m_sum += static_cast<double>(value);
         }
 
-    private:
-        T m_runningSum{static_cast<T>(0.0)};
+        void onRemove(T value)
+        {
+            m_sum -= static_cast<double>(value);
+        }
+
+        void clear()
+        {
+            m_sum = 0.0;
+        }
+
+        T getResult(size_t count) const
+        {
+            // The result is just the total sum
+            return static_cast<T>(m_sum);
+        }
+
+        // --- State Serialization ---
+        double getState() const
+        {
+            return m_sum;
+        }
+
+        void setState(double state)
+        {
+            m_sum = state;
+        }
+
+        // Optional: State validation (used in adapter)
+        static bool validateState(double state, const std::vector<T> &buffer)
+        {
+            double actualSum = std::accumulate(buffer.begin(), buffer.end(), 0.0);
+            const double tolerance = 0.0001 * std::max(1.0, std::abs(actualSum));
+            return (std::abs(state - actualSum) <= tolerance);
+        }
+    };
+
+    /**
+     * @brief Policy for SlidingWindowFilter that counts 'true' entries.
+     */
+    struct CounterPolicy
+    {
+        size_t m_count = 0;
+
+        void onAdd(bool value)
+        {
+            if (value)
+            {
+                m_count++;
+            }
+        }
+
+        void onRemove(bool value)
+        {
+            if (value)
+            {
+                m_count--;
+            }
+        }
+
+        void clear()
+        {
+            m_count = 0;
+        }
+
+        // Note: The process buffer is float, so we cast the count
+        float getResult(size_t count) const
+        {
+            return static_cast<float>(m_count);
+        }
+
+        // --- State Serialization ---
+        size_t getState() const
+        {
+            return m_count;
+        }
+
+        void setState(size_t state)
+        {
+            m_count = state;
+        }
+
+        // Optional: State validation (used in adapter)
+        static bool validateState(size_t state, const std::vector<bool> &buffer)
+        {
+            size_t actualCount = 0;
+            for (bool val : buffer)
+            {
+                if (val)
+                    actualCount++;
+            }
+            return state == actualCount;
+        }
     };
 
     /**

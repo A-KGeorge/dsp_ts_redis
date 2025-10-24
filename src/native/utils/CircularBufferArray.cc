@@ -251,4 +251,5 @@ namespace dsp::utils
     template class CircularBufferArray<int>;
     template class CircularBufferArray<float>;
     template class CircularBufferArray<double>;
+    template class CircularBufferArray<bool>;
 }

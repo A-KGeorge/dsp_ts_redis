@@ -163,4 +163,11 @@ namespace dsp::utils
     // Note: ZScorePolicy is NOT instantiated here because it has a different interface
     // (getResult takes 2 parameters: currentValue and count, not just count)
     // MovingZScoreFilter doesn't use SlidingWindowFilter template
+
+    // WaveformLengthFilter instantiations
+    template class dsp::utils::SlidingWindowFilter<float, SumPolicy<float>>;
+    template class dsp::utils::SlidingWindowFilter<double, SumPolicy<double>>;
+
+    // WAMP,SSC instantiations
+    template class dsp::utils::SlidingWindowFilter<bool, CounterPolicy>;
 }

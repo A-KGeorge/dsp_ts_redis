@@ -8,7 +8,7 @@ This roadmap outlines the planned evolution of **dsp-ts-redis** — a native **C
 
 - [x] **Redis Integration (Serialization / Deserialization)**
 - [x] **Advanced Logging (Circular Buffer, Topic Routing, Concurrency)**
-- [x] **Core DSP Filters:** `movingAverage`, `rms`, `rectify`, `variance`, `zScoreNormalize`, `mav`, `waveformLength`, `willisonAmplitude`, `slopeSignChange`
+- [x] **Core DSP Filters:** `movingAverage`, `rms`, `rectify`, `variance`, `zScoreNormalize`, `mav`, `waveformLength`, `willisonAmplitude`, `slopeSignChange`, `waveformLength`, `willisonAmplitude`, `slopeSignChange`
 - [x] **Utility:** `listState`, `clearState`, `getState`, `saveState`
 
 ---
@@ -17,7 +17,7 @@ This roadmap outlines the planned evolution of **dsp-ts-redis** — a native **C
 
 | **Category**                          | **Methods**                                                                                                                                                                                       | **Description / Use Case**                          | **Redis Usage**                  | **Implementation Difficulty** |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | -------------------------------- | ----------------------------- |
-| 🧩 **Core Time-Domain Filters**       | ✅ `movingAverage`, ✅ `rms`, ✅ `rectify`, ✅ `variance`, ✅ `zScoreNormalize`, ✅ `mav`, ☐ `waveformLength`, ☐ `willisonAmplitude`, ☐ `slopeSignChange`                                         | Core smoothing and EMG amplitude estimation         | Buffer persistence (per channel) | 🟢 Easy                       |
+| 🧩 **Core Time-Domain Filters**       | ✅ `movingAverage`, ✅ `rms`, ✅ `rectify`, ✅ `variance`, ✅ `zScoreNormalize`, ✅ `mav`, ✅ `waveformLength`, ✅ `willisonAmplitude`, ✅ `slopeSignChange`                                      | Core smoothing and EMG amplitude estimation         | Buffer persistence (per channel) | 🟢 Easy                       |
 | 🧠 **Statistical / Entropy Features** | ☐ `kurtosis`, `skewness`, `entropy`, `sampleEntropy`, `approximateEntropy`, `hjorthParameters`                                                                                                    | Shape and complexity features                       | Aggregates per window            | 🟡 Medium                     |
 | 🔉 **Spectral / Transform Domain**    | ☐ `fft`, `dft`, `hilbertTransform`, `hilbertEnvelope`, `waveletTransform`, `stft`, `istft`, `cwt`, `spectrogram`, `melSpectrogram`, `chromagram`, `cepstrum`, `powerSpectralDensity`, `coherence` | Frequency and time-frequency analysis               | Optional (RedisJSON possible)    | 🔴 Hard                       |
 | 🎛 **Filtering (Classic + Modern)**    | ☐ `firFilter`, `iirFilter`, `butterworthLowpass`, `notchFilter`, `bandstopFilter`, `savitzkyGolayFilter`, `chebyshevFilter`, `ellipticFilter`, `kalmanFilter`, `wienerFilter`                     | Filtering for sensor / audio data                   | Coefficients / state storage     | 🔴 Hard                       |
@@ -41,7 +41,7 @@ This roadmap outlines the planned evolution of **dsp-ts-redis** — a native **C
 | Priority | Category                                                 | Status | Notes                                 |
 | -------- | -------------------------------------------------------- | ------ | ------------------------------------- |
 | 1️⃣       | `movingAverage`, `rms`, `rectify`, `variance`            | [X]    | Baseline DSP primitives (C++ + N-API) |
-| 2️⃣       | `waveformLength`, `willisonAmplitude`, `slopeSignChange` | [ ]    | Next EMG feature set                  |
+| 2️⃣       | `waveformLength`, `willisonAmplitude`, `slopeSignChange` | [X]    | Next EMG feature set                  |
 | 3️⃣       | `clearState`, `getState`, `listState`, `saveState`       | [X]    | Complete Redis debug utilities        |
 
 ---

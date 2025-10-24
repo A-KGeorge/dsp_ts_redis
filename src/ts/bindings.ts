@@ -10,6 +10,9 @@ import type {
   VarianceParams,
   ZScoreNormalizeParams,
   MeanAbsoluteValueParams,
+  WaveformLengthParams,
+  SlopeSignChangeParams,
+  WillisonAmplitudeParams,
   PipelineCallbacks,
   LogEntry,
   SampleBatch,
@@ -434,10 +437,118 @@ class DspProcessor {
     return this;
   }
 
-  // addNotchFilter(freqHz: number): this {
-  //   this.nativeInstance.addStage("notchFilter", { freqHz });
-  //   return this;
-  // }
+  /**
+   * Add a Waveform Length stage to the pipeline
+   * Computes the cumulative length of the signal path (sum of absolute differences between consecutive samples)
+   * Useful for EMG activity detection and signal complexity analysis
+   *
+   * @param params - Configuration for the waveform length filter
+   * @param params.windowSize - Number of samples in the sliding window
+   * @returns this instance for method chaining
+   *
+   * @example
+   * // Basic waveform length calculation
+   * pipeline.WaveformLength({ windowSize: 100 });
+   *
+   * @example
+   * // Multi-stage EMG pipeline
+   * pipeline
+   *   .Rectify({ mode: "full" })
+   *   .WaveformLength({ windowSize: 50 })
+   *   .tap((samples) => console.log('WL:', samples[0]));
+   */
+  WaveformLength(params: WaveformLengthParams): this {
+    if (params.windowSize <= 0 || !Number.isInteger(params.windowSize)) {
+      throw new TypeError(
+        `WaveformLength: windowSize must be a positive integer, got ${params.windowSize}`
+      );
+    }
+    this.nativeInstance.addStage("waveformLength", params);
+    this.stages.push(`waveformLength:${params.windowSize}`);
+    return this;
+  }
+
+  /**
+   * Add a Slope Sign Change (SSC) stage to the pipeline
+   * Counts the number of times the signal slope changes sign within a window
+   * Useful for EMG frequency content analysis and muscle fatigue detection
+   *
+   * @param params - Configuration for the SSC filter
+   * @param params.windowSize - Number of samples in the sliding window
+   * @param params.threshold - Noise suppression threshold (default: 0.0)
+   * @returns this instance for method chaining
+   *
+   * @example
+   * // Basic SSC with no threshold
+   * pipeline.SlopeSignChange({ windowSize: 100 });
+   *
+   * @example
+   * // SSC with noise threshold
+   * pipeline.SlopeSignChange({ windowSize: 100, threshold: 0.01 });
+   *
+   * @example
+   * // EMG frequency analysis pipeline
+   * pipeline
+   *   .Rectify({ mode: "full" })
+   *   .SlopeSignChange({ windowSize: 50, threshold: 0.005 })
+   *   .tap((samples) => console.log('SSC count:', samples[0]));
+   */
+  SlopeSignChange(params: SlopeSignChangeParams): this {
+    if (params.windowSize <= 0 || !Number.isInteger(params.windowSize)) {
+      throw new TypeError(
+        `SlopeSignChange: windowSize must be a positive integer, got ${params.windowSize}`
+      );
+    }
+    if (params.threshold !== undefined && params.threshold < 0) {
+      throw new TypeError(
+        `SlopeSignChange: threshold must be non-negative, got ${params.threshold}`
+      );
+    }
+    this.nativeInstance.addStage("slopeSignChange", params);
+    this.stages.push(`slopeSignChange:${params.windowSize}`);
+    return this;
+  }
+
+  /**
+   * Add a Willison Amplitude (WAMP) stage to the pipeline
+   * Counts the number of times consecutive samples differ by more than a threshold
+   * Useful for EMG burst detection and muscle activity classification
+   *
+   * @param params - Configuration for the WAMP filter
+   * @param params.windowSize - Number of samples in the sliding window
+   * @param params.threshold - Difference threshold for counting (default: 0.0)
+   * @returns this instance for method chaining
+   *
+   * @example
+   * // Basic WAMP with no threshold
+   * pipeline.WillisonAmplitude({ windowSize: 100 });
+   *
+   * @example
+   * // WAMP with threshold for burst detection
+   * pipeline.WillisonAmplitude({ windowSize: 100, threshold: 0.05 });
+   *
+   * @example
+   * // EMG burst detection pipeline
+   * pipeline
+   *   .Rectify({ mode: "full" })
+   *   .WillisonAmplitude({ windowSize: 50, threshold: 0.02 })
+   *   .tap((samples) => console.log('WAMP count:', samples[0]));
+   */
+  WillisonAmplitude(params: WillisonAmplitudeParams): this {
+    if (params.windowSize <= 0 || !Number.isInteger(params.windowSize)) {
+      throw new TypeError(
+        `WillisonAmplitude: windowSize must be a positive integer, got ${params.windowSize}`
+      );
+    }
+    if (params.threshold !== undefined && params.threshold < 0) {
+      throw new TypeError(
+        `WillisonAmplitude: threshold must be non-negative, got ${params.threshold}`
+      );
+    }
+    this.nativeInstance.addStage("willisonAmplitude", params);
+    this.stages.push(`willisonAmplitude:${params.windowSize}`);
+    return this;
+  }
 
   /**
    * Tap into the pipeline for debugging and inspection

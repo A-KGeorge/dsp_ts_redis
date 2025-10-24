@@ -193,6 +193,54 @@ export interface MeanAbsoluteValueParams {
 }
 
 /**
+ * Parameters for adding a Waveform Length stage
+ * Computes the cumulative length of the signal path (sum of absolute differences)
+ */
+export interface WaveformLengthParams {
+  /**
+   * Window size in samples
+   * Required parameter for waveform length calculation
+   */
+  windowSize: number;
+}
+
+/**
+ * Parameters for adding a Slope Sign Change (SSC) stage
+ * Counts frequency content by detecting sign changes in slope
+ */
+export interface SlopeSignChangeParams {
+  /**
+   * Window size in samples
+   * Required parameter for SSC calculation
+   */
+  windowSize: number;
+
+  /**
+   * Threshold for noise suppression (default: 0.0)
+   * Only count sign changes when |slope| exceeds this threshold
+   */
+  threshold?: number;
+}
+
+/**
+ * Parameters for adding a Willison Amplitude (WAMP) stage
+ * Counts the number of times consecutive samples differ by more than a threshold
+ */
+export interface WillisonAmplitudeParams {
+  /**
+   * Window size in samples
+   * Required parameter for WAMP calculation
+   */
+  windowSize: number;
+
+  /**
+   * Threshold for difference detection (default: 0.0)
+   * Only count differences exceeding this threshold
+   */
+  threshold?: number;
+}
+
+/**
  * Tap callback function for inspecting samples at any point in the pipeline
  * @param samples - Float32Array view of the current samples
  * @param stageName - Name of the pipeline stage

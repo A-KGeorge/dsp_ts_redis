@@ -978,13 +978,288 @@ const output4 = await pipeline4.process(nearConstant, {
 - Preserves relative distances and relationships in the data
 - Linear transformation (reversible if original mean/stddev are known)
 
+##### Waveform Length (WL) Filter
+
+```typescript
+pipeline.WaveformLength({ windowSize: number });
+```
+
+Implements waveform length calculation to measure the total path length traveled by a signal over a sliding window. WL is the sum of absolute differences between consecutive samples, commonly used in EMG signal analysis.
+
+**Parameters:**
+
+- `windowSize`: Number of samples for the sliding window
+
+**Features:**
+
+- O(1) per-sample computation using circular buffer with running sum of differences
+- Tracks previous sample to calculate absolute difference
+- Per-channel state for multi-channel EMG processing
+- Full state serialization including buffer and previous sample value
+- Always non-negative output
+- Sensitive to signal complexity and frequency content
+
+**Mathematical Definition:**
+
+For window of samples `[x₁, x₂, ..., xₙ]`:
+`WL = Σ|xᵢ₊₁ - xᵢ|` for i = 1 to n-1
+
+**Use cases:**
+
+- EMG signal analysis and muscle activity quantification
+- Detecting signal complexity and variability
+- Gesture recognition and prosthetic control
+- Fatigue detection (WL decreases with muscle fatigue)
+- Feature extraction for classification algorithms
+- Vibration monitoring and equipment diagnostics
+
+**Example:**
+
+```typescript
+// Basic waveform length computation
+const pipeline = createDspPipeline();
+pipeline.WaveformLength({ windowSize: 100 });
+
+const signal = new Float32Array([1, 3, 2, 5, 4, 6]);
+// Differences: |3-1|=2, |2-3|=1, |5-2|=3, |4-5|=1, |6-4|=2
+// Cumulative WL: 0, 2, 3, 6, 7, 9
+const result = await pipeline.process(signal, {
+  sampleRate: 1000,
+  channels: 1,
+});
+// result = [0, 2, 3, 6, 7, 9]
+
+// EMG feature extraction pipeline
+const emgPipeline = createDspPipeline();
+emgPipeline
+  .Rectify({ mode: "full" }) // Convert to magnitude
+  .WaveformLength({ windowSize: 250 }); // 250ms window at 1kHz
+
+// Multi-channel muscle monitoring
+const multiChannelEMG = new Float32Array(4000); // 1000 samples × 4 channels
+const wlFeatures = await emgPipeline.process(multiChannelEMG, {
+  sampleRate: 1000,
+  channels: 4,
+});
+// Each muscle gets independent WL calculation
+```
+
+**Comparison with other features:**
+
+| Feature | Measures                    | Sensitivity        | Use Case               |
+| ------- | --------------------------- | ------------------ | ---------------------- |
+| WL      | Total path length           | High to complexity | Complexity/variability |
+| MAV     | Average magnitude           | Amplitude level    | Activity level         |
+| RMS     | Root mean square            | Power/energy       | Signal strength        |
+| SSC     | Slope direction changes     | Frequency content  | Oscillation rate       |
+| WAMP    | Amplitude threshold crosses | Burst detection    | Transient events       |
+
+**Mathematical Properties:**
+
+- **Non-negative**: WL ≥ 0 for all signals
+- **Monotonic**: WL increases with window filling
+- **Frequency-dependent**: Higher frequency → higher WL for same amplitude
+- **Scale-variant**: WL(k·x) = k·WL(x) for constant k
+
+##### Slope Sign Change (SSC) Filter
+
+```typescript
+pipeline.SlopeSignChange({ windowSize: number; threshold?: number });
+```
+
+Implements slope sign change counting to measure frequency content by detecting how many times the signal changes direction (slope changes from positive to negative or vice versa). Commonly used in EMG analysis.
+
+**Parameters:**
+
+- `windowSize`: Number of samples for the sliding window
+- `threshold`: Minimum absolute difference to count as significant (default: 0)
+
+**Features:**
+
+- Counts direction changes (increasing→decreasing or decreasing→increasing)
+- Threshold filtering to ignore noise and minor fluctuations
+- Requires 2 previous samples for slope calculation
+- O(1) per-sample computation using circular buffer
+- Per-channel state for multi-channel processing
+- Full state serialization including filter state (previous 2 samples, init count)
+
+**Mathematical Definition:**
+
+A slope sign change occurs at sample `xᵢ` if:
+`[(xᵢ - xᵢ₋₁) × (xᵢ - xᵢ₊₁)] ≥ threshold²`
+
+Where `xᵢ₋₁` and `xᵢ₊₁` are the previous and next samples.
+
+**Use cases:**
+
+- EMG frequency content analysis
+- Detecting oscillations and vibrations
+- Gesture recognition based on movement patterns
+- Signal complexity measurement
+- Muscle contraction rate estimation
+- Feature extraction for pattern recognition
+
+**Example:**
+
+```typescript
+// Basic SSC with zero threshold
+const pipeline = createDspPipeline();
+pipeline.SlopeSignChange({ windowSize: 100, threshold: 0 });
+
+const signal = new Float32Array([1, 3, 2, 4, 3, 5]);
+// Slopes: + - + - +
+// Sign changes at indices: 2, 3, 4, 5
+const result = await pipeline.process(signal, {
+  sampleRate: 1000,
+  channels: 1,
+});
+// result = [0, 0, 1, 2, 3, 4]
+
+// SSC with noise threshold
+const filteredPipeline = createDspPipeline();
+filteredPipeline.SlopeSignChange({ windowSize: 200, threshold: 0.1 });
+
+const noisySignal = new Float32Array(500);
+// Only counts sign changes where |difference| > 0.1
+const sscCount = await filteredPipeline.process(noisySignal, {
+  sampleRate: 1000,
+  channels: 1,
+});
+
+// Multi-channel EMG analysis
+const emgPipeline = createDspPipeline();
+emgPipeline
+  .Rectify({ mode: "full" })
+  .SlopeSignChange({ windowSize: 250, threshold: 0.05 });
+
+const fourChannelEMG = new Float32Array(4000);
+const sscFeatures = await emgPipeline.process(fourChannelEMG, {
+  sampleRate: 1000,
+  channels: 4,
+});
+```
+
+**Interpretation:**
+
+- **Low SSC**: Smooth, slow-changing signal (low frequency)
+- **High SSC**: Rapidly oscillating signal (high frequency)
+- **Zero SSC**: Monotonic signal (constantly increasing or decreasing)
+- **Threshold effect**: Higher threshold → fewer counted changes (filters noise)
+
+**Mathematical Properties:**
+
+- **Integer-valued**: SSC is always a whole number (count)
+- **Non-negative**: SSC ≥ 0
+- **Bounded**: Max SSC = window_size - 2 (alternating signal)
+- **Frequency proxy**: Approximately proportional to signal frequency
+
+##### Willison Amplitude (WAMP) Filter
+
+```typescript
+pipeline.WillisonAmplitude({ windowSize: number; threshold?: number });
+```
+
+Implements Willison Amplitude calculation to count the number of times the absolute difference between consecutive samples exceeds a threshold. Useful for detecting burst activity and transient events in EMG signals.
+
+**Parameters:**
+
+- `windowSize`: Number of samples for the sliding window
+- `threshold`: Minimum absolute difference to count as significant (default: 0)
+
+**Features:**
+
+- Counts amplitude changes exceeding threshold
+- Tracks previous sample for difference calculation
+- O(1) per-sample computation using circular buffer
+- Per-channel state for multi-channel processing
+- Full state serialization including buffer and previous sample
+- Sensitive to amplitude variations and burst activity
+
+**Mathematical Definition:**
+
+WAMP counts samples where:
+`|xᵢ - xᵢ₋₁| > threshold`
+
+Where `xᵢ` is the current sample and `xᵢ₋₁` is the previous sample.
+
+**Use cases:**
+
+- EMG burst detection and muscle activation counting
+- Transient event detection in sensor data
+- Activity level quantification
+- Feature extraction for gesture recognition
+- Equipment vibration monitoring
+- Signal quality assessment (detect dropouts/spikes)
+
+**Example:**
+
+```typescript
+// Basic WAMP with threshold
+const pipeline = createDspPipeline();
+pipeline.WillisonAmplitude({ windowSize: 100, threshold: 1.0 });
+
+const signal = new Float32Array([0, 0.5, 2.5, 2.6, 1.0, 3.5]);
+// Diffs: 0.5, 2.0, 0.1, -1.6, 2.5
+// Exceeds: no, yes, no, yes, yes
+const result = await pipeline.process(signal, {
+  sampleRate: 1000,
+  channels: 1,
+});
+// result = [0, 0, 1, 1, 2, 3]
+
+// EMG burst detection
+const burstPipeline = createDspPipeline();
+burstPipeline
+  .Rectify({ mode: "full" })
+  .WillisonAmplitude({ windowSize: 200, threshold: 0.1 });
+
+const emgData = new Float32Array(1000);
+const burstCount = await burstPipeline.process(emgData, {
+  sampleRate: 1000,
+  channels: 1,
+});
+// High WAMP values indicate burst activity
+
+// Multi-channel activity monitoring
+const activityPipeline = createDspPipeline();
+activityPipeline.WillisonAmplitude({ windowSize: 250, threshold: 0.05 });
+
+const multiChannelData = new Float32Array(4000); // 4 channels
+const activityLevel = await activityPipeline.process(multiChannelData, {
+  sampleRate: 1000,
+  channels: 4,
+});
+// Each channel independently tracks activity bursts
+```
+
+**Interpretation:**
+
+- **Low WAMP**: Smooth signal with gradual changes
+- **High WAMP**: Signal with frequent amplitude variations or bursts
+- **Zero WAMP**: Constant signal or all changes below threshold
+- **Threshold effect**: Higher threshold → fewer counted events
+
+**Comparison with SSC:**
+
+| Feature | Measures          | Sensitivity            | Best For              |
+| ------- | ----------------- | ---------------------- | --------------------- |
+| WAMP    | Amplitude changes | Large amplitude shifts | Burst detection       |
+| SSC     | Direction changes | Frequency content      | Oscillation counting  |
+| Both    | Signal activity   | Different aspects      | Combined EMG features |
+
+**Mathematical Properties:**
+
+- **Integer-valued**: WAMP is a count (whole number)
+- **Non-negative**: WAMP ≥ 0
+- **Bounded**: Max WAMP = window_size - 1 (all samples exceed threshold)
+- **Threshold-dependent**: WAMP decreases as threshold increases
+
 #### 🚧 Coming Soon
 
 The following filters are planned for future releases:
 
 - **IIR/FIR Filters**: Butterworth, Chebyshev, notch filters
 - **Transform Domain**: FFT, STFT, Hilbert transform
-- **EMG/Biosignal**: Specialized EMG processing stages
 - **Feature Extraction**: Zero-crossing rate, peak detection
 
 See the [project roadmap](./ROADMAP.md) for more details.
@@ -1329,17 +1604,20 @@ npx tsx ./src/ts/examples/Rectify/test-streaming.ts
 ### Running Tests
 
 ```bash
-npm test    # Run all 229 tests
+npm test    # Run all tests
 ```
 
 **Test Coverage:**
 
-- ✅ **229 tests** across 68 test suites
+- ✅ **260+ tests** across test suites
 - ✅ Moving Average (batch & moving modes)
 - ✅ RMS (batch & moving modes)
 - ✅ Variance (batch & moving modes)
 - ✅ Z-Score Normalization (batch & moving modes)
 - ✅ Mean Absolute Value (batch & moving modes)
+- ✅ Waveform Length (EMG feature)
+- ✅ Slope Sign Change (SSC - EMG feature)
+- ✅ Willison Amplitude (WAMP - EMG feature)
 - ✅ Rectify (full-wave & half-wave)
 - ✅ Time-Series Processing (18 tests)
 - ✅ Pipeline Chaining (17 tests)
@@ -1357,6 +1635,9 @@ npm test    # Run all 229 tests
 - ✅ **Variance Filter**: Batch and moving modes with state persistence
 - ✅ **Z-Score Normalization**: Batch and moving modes with adaptive normalization
 - ✅ **Mean Absolute Value**: Batch and moving modes for EMG/biosignal analysis
+- ✅ **Waveform Length**: EMG complexity and path length measurement
+- ✅ **Slope Sign Change (SSC)**: EMG frequency content and oscillation detection
+- ✅ **Willison Amplitude (WAMP)**: EMG burst detection and amplitude change counting
 - ✅ **Time-Series Processing**: Support for irregular timestamps and time-based windows
 - ✅ **Circular Buffer**: Optimized with O(1) operations
 - ✅ **Multi-Channel Support**: Independent state per channel
