@@ -41,7 +41,7 @@ namespace dsp::adapters
         }
 
         // Implementation of the interface method
-        void process(float *buffer, size_t numSamples, int numChannels) override
+        void process(float *buffer, size_t numSamples, int numChannels, const float *timestamps = nullptr) override
         {
             if (m_mode == RmsMode::Batch)
             {
@@ -49,7 +49,7 @@ namespace dsp::adapters
             }
             else // RmsMode::Moving
             {
-                processMoving(buffer, numSamples, numChannels);
+                processMoving(buffer, numSamples, numChannels, timestamps);
             }
         }
 
@@ -210,7 +210,7 @@ namespace dsp::adapters
         /**
          * @brief Statefully processes samples using the moving RMS filters.
          */
-        void processMoving(float *buffer, size_t numSamples, int numChannels)
+        void processMoving(float *buffer, size_t numSamples, int numChannels, const float * /*timestamps*/)
         {
             // Lazily initialize filters, one for each channel
             if (m_filters.size() != numChannels)

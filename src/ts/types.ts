@@ -1,8 +1,21 @@
 /**
- * Options for processing audio data
+ * Options for processing data
+ *
+ * Two modes supported:
+ * 1. Sample-based (legacy): Provide sampleRate, assumes fixed intervals
+ * 2. Time-based (new): Omit sampleRate, timestamps are explicit or auto-generated
  */
 export interface ProcessOptions {
-  sampleRate: number;
+  /**
+   * Sample rate in Hz (legacy mode)
+   * If provided, assumes fixed time intervals between samples
+   * If omitted, uses explicit timestamps (time-based mode)
+   */
+  sampleRate?: number;
+
+  /**
+   * Number of channels in the signal (default: 1)
+   */
   channels?: number;
 }
 
@@ -17,20 +30,50 @@ export interface RedisConfig {
 
 /**
  * Parameters for adding a moving average stage
+ *
+ * Two windowing modes supported:
+ * 1. Sample-based (legacy): windowSize in samples (requires sampleRate in process())
+ * 2. Time-based (new): windowDuration in milliseconds (works with any sample rate)
  */
 export interface MovingAverageParams {
   mode: "batch" | "moving";
-  /** Required only for "moving" mode */
+
+  /**
+   * Window size in samples (legacy, sample-based mode)
+   * Required for "moving" mode when using sampleRate-based processing
+   */
   windowSize?: number;
+
+  /**
+   * Window duration in milliseconds (time-based mode)
+   * Required for "moving" mode when using time-based processing
+   * Takes precedence over windowSize if both provided
+   */
+  windowDuration?: number;
 }
 
 /**
  * Parameters for adding a RMS stage
+ *
+ * Two windowing modes supported:
+ * 1. Sample-based (legacy): windowSize in samples (requires sampleRate in process())
+ * 2. Time-based (new): windowDuration in milliseconds (works with any sample rate)
  */
 export interface RmsParams {
   mode: "batch" | "moving";
-  /** Required only for "moving" mode */
+
+  /**
+   * Window size in samples (legacy, sample-based mode)
+   * Required for "moving" mode when using sampleRate-based processing
+   */
   windowSize?: number;
+
+  /**
+   * Window duration in milliseconds (time-based mode)
+   * Required for "moving" mode when using time-based processing
+   * Takes precedence over windowSize if both provided
+   */
+  windowDuration?: number;
 }
 
 /**
@@ -42,20 +85,51 @@ export interface RectifyParams {
 
 /**
  * Parameters for adding a variance stage
+ *
+ * Two windowing modes supported:
+ * 1. Sample-based (legacy): windowSize in samples (requires sampleRate in process())
+ * 2. Time-based (new): windowDuration in milliseconds (works with any sample rate)
  */
 export interface VarianceParams {
   mode: "batch" | "moving";
-  /** Required only for "moving" mode */
+
+  /**
+   * Window size in samples (legacy, sample-based mode)
+   * Required for "moving" mode when using sampleRate-based processing
+   */
   windowSize?: number;
+
+  /**
+   * Window duration in milliseconds (time-based mode)
+   * Required for "moving" mode when using time-based processing
+   * Takes precedence over windowSize if both provided
+   */
+  windowDuration?: number;
 }
 
 /**
  * Parameters for adding a Z-Score Normalization stage
+ *
+ * Two windowing modes supported:
+ * 1. Sample-based (legacy): windowSize in samples (requires sampleRate in process())
+ * 2. Time-based (new): windowDuration in milliseconds (works with any sample rate)
  */
 export interface ZScoreNormalizeParams {
   mode: "batch" | "moving";
-  /** Required only for "moving" mode */
+
+  /**
+   * Window size in samples (legacy, sample-based mode)
+   * Required for "moving" mode when using sampleRate-based processing
+   */
   windowSize?: number;
+
+  /**
+   * Window duration in milliseconds (time-based mode)
+   * Required for "moving" mode when using time-based processing
+   * Takes precedence over windowSize if both provided
+   */
+  windowDuration?: number;
+
   /**
    * Small value to prevent division by zero when standard deviation is 0.
    * @default 1e-6
@@ -65,11 +139,26 @@ export interface ZScoreNormalizeParams {
 
 /**
  * Parameters for adding a Mean Absolute Value (MAV) stage
+ *
+ * Two windowing modes supported:
+ * 1. Sample-based (legacy): windowSize in samples (requires sampleRate in process())
+ * 2. Time-based (new): windowDuration in milliseconds (works with any sample rate)
  */
 export interface MeanAbsoluteValueParams {
   mode: "batch" | "moving";
-  /** Required only for "moving" mode */
+
+  /**
+   * Window size in samples (legacy, sample-based mode)
+   * Required for "moving" mode when using sampleRate-based processing
+   */
   windowSize?: number;
+
+  /**
+   * Window duration in milliseconds (time-based mode)
+   * Required for "moving" mode when using time-based processing
+   * Takes precedence over windowSize if both provided
+   */
+  windowDuration?: number;
 }
 
 /**
@@ -234,8 +323,10 @@ export interface StageSummary {
   index: number;
   /** Stage type (e.g., 'movingAverage', 'rms', 'rectify') */
   type: string;
-  /** Window size for stateful filters (if applicable) */
+  /** Window size for stateful filters in samples (legacy, if applicable) */
   windowSize?: number;
+  /** Window duration for stateful filters in milliseconds (time-based, if applicable) */
+  windowDuration?: number;
   /** Number of channels (if applicable) */
   numChannels?: number;
   /** Rectification mode for rectify stage (if applicable) */

@@ -206,7 +206,7 @@ describe("Z-Score Normalize Filter", () => {
 
       assert.throws(() => {
         pipeline.ZScoreNormalize({ mode: "moving" } as any);
-      }, /windowSize must be a positive integer/);
+      }, /either windowSize or windowDuration must be specified/);
     });
 
     test("should throw error for invalid window size", () => {

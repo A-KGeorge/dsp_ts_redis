@@ -23,8 +23,11 @@ namespace dsp
          * @param buffer The interleaved audio buffer.
          * @param numSamples The total number of samples (e.g., 1024).
          * @param numChannels The number of channels (e.g., 1, 2, 4).
+         * @param timestamps Optional array of timestamps (in milliseconds) for each sample.
+         *                   If nullptr, uses sample-based processing (legacy mode).
+         *                   If provided, must have length equal to numSamples.
          */
-        virtual void process(float *buffer, size_t numSamples, int numChannels) = 0;
+        virtual void process(float *buffer, size_t numSamples, int numChannels, const float *timestamps = nullptr) = 0;
 
         /**
          * @brief Serializes the stage's internal state to a Napi::Object.

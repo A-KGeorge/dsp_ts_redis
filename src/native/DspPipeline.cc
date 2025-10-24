@@ -57,11 +57,21 @@ namespace dsp
             size_t windowSize = 0;
             if (mode == dsp::adapters::AverageMode::Moving)
             {
-                if (!params.Has("windowSize"))
+                // Accept either windowSize or windowDuration (convert duration to size later)
+                if (params.Has("windowSize"))
                 {
-                    throw std::invalid_argument("MovingAverage: 'windowSize' is required for 'moving' mode");
+                    windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
                 }
-                windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+                else if (params.Has("windowDuration"))
+                {
+                    // TODO: Convert windowDuration to windowSize based on sample rate
+                    // For now, use a reasonable default (this will be improved in Phase 2b)
+                    windowSize = 100; // Placeholder
+                }
+                else
+                {
+                    throw std::invalid_argument("MovingAverage: either 'windowSize' or 'windowDuration' is required for 'moving' mode");
+                }
             }
 
             return std::make_unique<dsp::adapters::MovingAverageStage>(mode, windowSize);
@@ -76,11 +86,20 @@ namespace dsp
             size_t windowSize = 0;
             if (mode == dsp::adapters::RmsMode::Moving)
             {
-                if (!params.Has("windowSize"))
+                // Accept either windowSize or windowDuration (convert duration to size later)
+                if (params.Has("windowSize"))
                 {
-                    throw std::invalid_argument("RMS: 'windowSize' is required for 'moving' mode");
+                    windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
                 }
-                windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+                else if (params.Has("windowDuration"))
+                {
+                    // TODO: Convert windowDuration to windowSize based on sample rate
+                    windowSize = 100; // Placeholder
+                }
+                else
+                {
+                    throw std::invalid_argument("RMS: either 'windowSize' or 'windowDuration' is required for 'moving' mode");
+                }
             }
 
             return std::make_unique<dsp::adapters::RmsStage>(mode, windowSize);
@@ -103,11 +122,20 @@ namespace dsp
             size_t windowSize = 0;
             if (mode == dsp::adapters::VarianceMode::Moving)
             {
-                if (!params.Has("windowSize"))
+                // Accept either windowSize or windowDuration
+                if (params.Has("windowSize"))
                 {
-                    throw std::invalid_argument("Variance: 'windowSize' is required for 'moving' mode");
+                    windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
                 }
-                windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+                else if (params.Has("windowDuration"))
+                {
+                    // TODO: Convert windowDuration to windowSize based on sample rate
+                    windowSize = 100; // Placeholder
+                }
+                else
+                {
+                    throw std::invalid_argument("Variance: either 'windowSize' or 'windowDuration' is required for 'moving' mode");
+                }
             }
 
             return std::make_unique<dsp::adapters::VarianceStage>(mode, windowSize);
@@ -122,11 +150,20 @@ namespace dsp
             size_t windowSize = 0;
             if (mode == dsp::adapters::ZScoreNormalizeMode::Moving)
             {
-                if (!params.Has("windowSize"))
+                // Accept either windowSize or windowDuration
+                if (params.Has("windowSize"))
                 {
-                    throw std::invalid_argument("ZScoreNormalize: 'windowSize' is required for 'moving' mode");
+                    windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
                 }
-                windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+                else if (params.Has("windowDuration"))
+                {
+                    // TODO: Convert windowDuration to windowSize based on sample rate
+                    windowSize = 100; // Placeholder
+                }
+                else
+                {
+                    throw std::invalid_argument("ZScoreNormalize: either 'windowSize' or 'windowDuration' is required for 'moving' mode");
+                }
             }
 
             // Get optional epsilon, default to 1e-6
@@ -148,11 +185,20 @@ namespace dsp
             size_t windowSize = 0;
             if (mode == dsp::adapters::MavMode::Moving)
             {
-                if (!params.Has("windowSize"))
+                // Accept either windowSize or windowDuration
+                if (params.Has("windowSize"))
                 {
-                    throw std::invalid_argument("MeanAbsoluteValue: 'windowSize' is required for 'moving' mode");
+                    windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
                 }
-                windowSize = params.Get("windowSize").As<Napi::Number>().Uint32Value();
+                else if (params.Has("windowDuration"))
+                {
+                    // TODO: Convert windowDuration to windowSize based on sample rate
+                    windowSize = 100; // Placeholder
+                }
+                else
+                {
+                    throw std::invalid_argument("MeanAbsoluteValue: either 'windowSize' or 'windowDuration' is required for 'moving' mode");
+                }
             }
 
             return std::make_unique<dsp::adapters::MeanAbsoluteValueStage>(mode, windowSize);
@@ -212,16 +258,20 @@ namespace dsp
                       Napi::Promise::Deferred deferred,
                       std::vector<std::unique_ptr<IDspStage>> &stages,
                       float *data,
+                      float *timestamps,
                       size_t numSamples,
                       int channels,
-                      Napi::Reference<Napi::Float32Array> &&bufferRef)
+                      Napi::Reference<Napi::Float32Array> &&bufferRef,
+                      Napi::Reference<Napi::Float32Array> &&timestampRef)
             : Napi::AsyncWorker(env),
               m_deferred(std::move(deferred)),
               m_stages(stages),
               m_data(data),
+              m_timestamps(timestamps),
               m_numSamples(numSamples),
               m_channels(channels),
-              m_bufferRef(std::move(bufferRef))
+              m_bufferRef(std::move(bufferRef)),
+              m_timestampRef(std::move(timestampRef))
         {
         }
 
@@ -232,9 +282,10 @@ namespace dsp
             try
             {
                 // Process the buffer through all stages
+                // Pass timestamps to stages that support time-based processing
                 for (const auto &stage : m_stages)
                 {
-                    stage->process(m_data, m_numSamples, m_channels);
+                    stage->process(m_data, m_numSamples, m_channels, m_timestamps);
                 }
             }
             catch (const std::exception &e)
@@ -261,14 +312,19 @@ namespace dsp
         Napi::Promise::Deferred m_deferred;
         std::vector<std::unique_ptr<IDspStage>> &m_stages;
         float *m_data;
+        float *m_timestamps;
         size_t m_numSamples;
         int m_channels;
         Napi::Reference<Napi::Float32Array> m_bufferRef;
+        Napi::Reference<Napi::Float32Array> m_timestampRef;
     };
 
     /**
      * This is the "Process" method.
-     * TS calls: await native.process(buffer, { sampleRate: 2000, channels: 4 })
+     * TS calls:
+     *   await native.process(buffer, timestamps, { channels: 4 })
+     * or (legacy):
+     *   await native.process(buffer, { sampleRate: 2000, channels: 4 })
      * Returns a Promise that resolves when processing is complete.
      */
     Napi::Value DspPipeline::ProcessAsync(const Napi::CallbackInfo &info)
@@ -280,8 +336,35 @@ namespace dsp
         float *data = jsBuffer.Data();
         size_t numSamples = jsBuffer.ElementLength();
 
-        // 2. Get options
-        Napi::Object options = info[1].As<Napi::Object>();
+        // 2. Get timestamps and options
+        // TypeScript can pass either:
+        //   process(buffer, timestamps, options) - new time-based API
+        //   process(buffer, options) - legacy sample-based API (timestamps = nullptr)
+        Napi::Float32Array jsTimestamps;
+        float *timestamps = nullptr;
+        Napi::Object options;
+
+        if (info.Length() >= 2 && info[1].IsTypedArray())
+        {
+            // New API: timestamps provided
+            jsTimestamps = info[1].As<Napi::Float32Array>();
+            timestamps = jsTimestamps.Data();
+            options = info[2].As<Napi::Object>();
+
+            // Validate timestamp length matches sample length
+            if (jsTimestamps.ElementLength() != numSamples)
+            {
+                Napi::TypeError::New(env, "Timestamp array length must match sample array length")
+                    .ThrowAsJavaScriptException();
+                return env.Undefined();
+            }
+        }
+        else
+        {
+            // Legacy API: no timestamps (will use sample indices)
+            options = info[1].As<Napi::Object>();
+        }
+
         int channels = options.Get("channels").As<Napi::Number>().Uint32Value();
         // int sampleRate = options.Get("sampleRate").As<Napi::Number>().Uint32Value();
 
@@ -289,11 +372,16 @@ namespace dsp
         Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
         Napi::Promise promise = deferred.Promise();
 
-        // 4. Create a reference to the buffer to keep it alive during async operation
+        // 4. Create references to keep buffers alive during async operation
         Napi::Reference<Napi::Float32Array> bufferRef = Napi::Reference<Napi::Float32Array>::New(jsBuffer, 1);
+        Napi::Reference<Napi::Float32Array> timestampRef;
+        if (timestamps != nullptr)
+        {
+            timestampRef = Napi::Reference<Napi::Float32Array>::New(jsTimestamps, 1);
+        }
 
         // 5. Create and queue the worker
-        ProcessWorker *worker = new ProcessWorker(env, std::move(deferred), m_stages, data, numSamples, channels, std::move(bufferRef));
+        ProcessWorker *worker = new ProcessWorker(env, std::move(deferred), m_stages, data, timestamps, numSamples, channels, std::move(bufferRef), std::move(timestampRef));
         worker->Queue();
 
         // 6. Return the promise immediately

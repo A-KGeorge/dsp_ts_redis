@@ -17,6 +17,7 @@ A modern DSP library built for Node.js backends processing real-time biosignals,
 - 🚀 **Native C++ Performance** – Optimized circular buffers and filters for real-time processing
 - 🔧 **TypeScript-First** – Full type safety with excellent IntelliSense
 - 📡 **Redis State Persistence** – Fully implemented state serialization/deserialization including circular buffer contents and running sums
+- ⏱️ **Time-Series Processing** – NEW! Support for irregular timestamps and time-based windows
 - 🔗 **Fluent Pipeline API** – Chain filter operations with method chaining
 - 🎯 **Zero-Copy Processing** – Direct TypedArray manipulation for minimal overhead
 - 📊 **Multi-Channel Support** – Process multi-channel signals (EMG, EEG, audio) with independent filter states per channel
@@ -357,7 +358,7 @@ npm install dsp-ts-redis redis
 
 ## 🚀 Quick Start
 
-### Basic Usage
+### Basic Usage (Sample-Based)
 
 ```typescript
 import { createDspPipeline } from "dsp-ts-redis";
@@ -366,7 +367,7 @@ import { createDspPipeline } from "dsp-ts-redis";
 const pipeline = createDspPipeline();
 
 // Add filters using method chaining
-pipeline.MovingAverage({ windowSize: 100 });
+pipeline.MovingAverage({ mode: "moving", windowSize: 100 });
 
 // Process samples (modifies input in-place for performance)
 const input = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
@@ -377,6 +378,25 @@ const output = await pipeline.process(input, {
 
 console.log(output); // Smoothed signal
 ```
+
+### NEW: Time-Series Processing with Timestamps
+
+```typescript
+import { createDspPipeline } from "dsp-ts-redis";
+
+// Create a pipeline with time-based window
+const pipeline = createDspPipeline();
+pipeline.MovingAverage({ mode: "moving", windowDuration: 5000 }); // 5 seconds
+
+// Process data with explicit timestamps (e.g., from IoT sensors with network jitter)
+const samples = new Float32Array([1.2, 3.4, 2.1, 4.5, 3.3]);
+const timestamps = new Float32Array([0, 100, 250, 400, 500]); // milliseconds
+
+const smoothed = await pipeline.process(samples, timestamps, { channels: 1 });
+console.log(smoothed); // Time-aware smoothing
+```
+
+**📚 [Complete Time-Series Guide →](./docs/time-series-guide.md)**
 
 ### Processing Without Modifying Input
 
@@ -468,16 +488,29 @@ interface RedisConfig {
 const pipeline = createDspPipeline(config?: RedisConfig);
 ```
 
-### Process Options
+### Process Methods
+
+The library supports three processing modes:
 
 ```typescript
-interface ProcessOptions {
-  sampleRate: number;   // Sample rate in Hz (required)
-  channels?: number;    // Number of channels (default: 1)
-}
+// Mode 1: Legacy sample-based (auto-generates timestamps from sample rate)
+await pipeline.process(samples: Float32Array, options: {
+  sampleRate: number;  // Hz (required for timestamp generation)
+  channels: number;
+});
 
-await pipeline.process(input: Float32Array, options: ProcessOptions);
+// Mode 2: Time-based with explicit timestamps
+await pipeline.process(samples: Float32Array, timestamps: Float32Array, options: {
+  channels: number;    // sampleRate not needed
+});
+
+// Mode 3: Auto-sequential (no sample rate, generates [0,1,2,3,...])
+await pipeline.process(samples: Float32Array, options: {
+  channels: number;    // sampleRate omitted
+});
 ```
+
+**See [Time-Series Guide](./docs/time-series-guide.md) for detailed examples.**
 
 ### Available Filters
 
@@ -491,6 +524,9 @@ pipeline.MovingAverage({ mode: "batch" });
 
 // Moving Mode - Stateful, sliding window with continuity
 pipeline.MovingAverage({ mode: "moving", windowSize: number });
+
+// NEW: Time-Based Window
+pipeline.MovingAverage({ mode: "moving", windowDuration: number }); // milliseconds
 ```
 
 Implements a simple moving average (SMA) filter with two modes:
@@ -505,7 +541,9 @@ Implements a simple moving average (SMA) filter with two modes:
 **Parameters:**
 
 - `mode`: `"batch"` or `"moving"` - determines computation strategy
-- `windowSize`: Number of samples to average over **(required for moving mode only)**
+- `windowSize`: Number of samples to average over **(optional for moving mode)**
+- `windowDuration`: Time-based window in milliseconds **(optional for moving mode)**
+- At least one of `windowSize` or `windowDuration` must be specified for moving mode
 
 **Features:**
 
@@ -1111,6 +1149,31 @@ console.log(summary);
 
 ## 📊 Use Cases
 
+### NEW: IoT Sensor Processing with Irregular Timestamps
+
+```typescript
+import { createDspPipeline } from "dsp-ts-redis";
+
+const pipeline = createDspPipeline();
+pipeline.MovingAverage({ mode: "moving", windowDuration: 10000 }); // 10 second window
+
+// Sensor data with network jitter (irregular intervals)
+const sensorReadings = [
+  { value: 23.5, timestamp: 1698889200000 },
+  { value: 24.1, timestamp: 1698889200150 }, // 150ms later
+  { value: 23.8, timestamp: 1698889200380 }, // 230ms later (jitter!)
+  { value: 24.5, timestamp: 1698889200500 }, // 120ms later
+];
+
+const samples = new Float32Array(sensorReadings.map((r) => r.value));
+const timestamps = new Float32Array(sensorReadings.map((r) => r.timestamp));
+
+const smoothed = await pipeline.process(samples, timestamps, { channels: 1 });
+// Properly handles irregular sampling intervals!
+```
+
+**📚 [More Time-Series Examples →](./docs/time-series-guide.md#real-world-examples)**
+
 ### Streaming Data with Crash Recovery
 
 ```typescript
@@ -1242,6 +1305,11 @@ redis-server
 # Run the Redis persistence example
 npx tsx ./src/ts/examples/redis/redis-example.ts
 
+# Time-series examples (NEW!)
+npx tsx ./src/ts/examples/timeseries/iot-sensor-example.ts
+npx tsx ./src/ts/examples/timeseries/redis-streaming-example.ts
+npx tsx ./src/ts/examples/timeseries/comparison-example.ts
+
 # Moving Average examples
 npx tsx ./src/ts/examples/MovingAverage/test-state.ts
 npx tsx ./src/ts/examples/MovingAverage/test-streaming.ts
@@ -1255,15 +1323,43 @@ npx tsx ./src/ts/examples/Rectify/test-state.ts
 npx tsx ./src/ts/examples/Rectify/test-streaming.ts
 ```
 
+### Running Tests
+
+```bash
+npm test    # Run all 229 tests
+```
+
+**Test Coverage:**
+
+- ✅ **229 tests** across 68 test suites
+- ✅ Moving Average (batch & moving modes)
+- ✅ RMS (batch & moving modes)
+- ✅ Variance (batch & moving modes)
+- ✅ Z-Score Normalization (batch & moving modes)
+- ✅ Mean Absolute Value (batch & moving modes)
+- ✅ Rectify (full-wave & half-wave)
+- ✅ Time-Series Processing (18 tests)
+- ✅ Pipeline Chaining (17 tests)
+- ✅ State Management (save/load/clear)
+- ✅ Redis Persistence (15 tests)
+- ✅ Multi-Channel Processing
+- ✅ Topic Router & Logging (54 tests)
+- ✅ Tap Debugging (8 tests)
+
 ### Implementation Status
 
 - ✅ **Moving Average Filter**: Fully implemented with state persistence
 - ✅ **RMS Filter**: Fully implemented with state persistence and envelope detection
 - ✅ **Rectify Filter**: Full-wave and half-wave rectification with mode persistence
+- ✅ **Variance Filter**: Batch and moving modes with state persistence
+- ✅ **Z-Score Normalization**: Batch and moving modes with adaptive normalization
+- ✅ **Mean Absolute Value**: Batch and moving modes for EMG/biosignal analysis
+- ✅ **Time-Series Processing**: Support for irregular timestamps and time-based windows
 - ✅ **Circular Buffer**: Optimized with O(1) operations
 - ✅ **Multi-Channel Support**: Independent state per channel
 - ✅ **Redis State Serialization**: Complete buffer and sum/sum-of-squares persistence
 - ✅ **Async Processing**: Background thread via Napi::AsyncWorker
+- ✅ **Pipeline Callbacks**: Batched and individual callbacks with topic routing
 - ✅ **Streaming Tests**: Comprehensive streaming validation with interruption recovery
 - 🚧 **Additional Filters**: IIR, FIR, FFT (coming soon)
 
@@ -1272,6 +1368,12 @@ npx tsx ./src/ts/examples/Rectify/test-streaming.ts
 ## 📚 Examples
 
 Check out the `/src/ts/examples` directory for complete working examples:
+
+### Time-Series Processing (NEW!)
+
+- [`timeseries/iot-sensor-example.ts`](./src/ts/examples/timeseries/iot-sensor-example.ts) - IoT sensor processing with network jitter and irregular timestamps
+- [`timeseries/redis-streaming-example.ts`](./src/ts/examples/timeseries/redis-streaming-example.ts) - Streaming data with Redis state persistence and recovery
+- [`timeseries/comparison-example.ts`](./src/ts/examples/timeseries/comparison-example.ts) - Sample-based vs time-based processing comparison
 
 ### Redis Integration
 

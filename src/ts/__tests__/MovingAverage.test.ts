@@ -165,7 +165,7 @@ describe("MovingAverage Filter", () => {
     test("should throw error for moving mode without window size", () => {
       assert.throws(() => {
         processor.MovingAverage({ mode: "moving" } as any);
-      }, /windowSize must be a positive integer/);
+      }, /either windowSize or windowDuration must be specified/);
     });
 
     test("should throw error for invalid window size", () => {

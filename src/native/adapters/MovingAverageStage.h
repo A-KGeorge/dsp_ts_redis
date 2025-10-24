@@ -41,7 +41,7 @@ namespace dsp::adapters
         }
 
         // This is the implementation of the interface method
-        void process(float *buffer, size_t numSamples, int numChannels) override
+        void process(float *buffer, size_t numSamples, int numChannels, const float *timestamps = nullptr) override
         {
             if (m_mode == AverageMode::Batch)
             {
@@ -49,7 +49,7 @@ namespace dsp::adapters
             }
             else // AverageMode::Moving
             {
-                processMoving(buffer, numSamples, numChannels);
+                processMoving(buffer, numSamples, numChannels, timestamps);
             }
         }
 
@@ -206,8 +206,12 @@ namespace dsp::adapters
 
         /**
          * @brief Statefully processes samples using the moving average filters.
+         * @param buffer The interleaved audio buffer.
+         * @param numSamples The total number of samples.
+         * @param numChannels The number of channels.
+         * @param timestamps Optional timestamps for time-based processing (currently unused, reserved for future).
          */
-        void processMoving(float *buffer, size_t numSamples, int numChannels)
+        void processMoving(float *buffer, size_t numSamples, int numChannels, const float *timestamps)
         {
             // Lazily initialize our filters, one for each channel
             if (m_filters.size() != numChannels)
@@ -221,6 +225,7 @@ namespace dsp::adapters
             }
 
             // Process the buffer sample by sample, de-interleaving
+            // TODO: Use timestamps for time-based window expiration (Phase 2b)
             for (size_t i = 0; i < numSamples; ++i)
             {
                 int channel = i % numChannels;

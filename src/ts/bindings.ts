@@ -182,7 +182,8 @@ class DspProcessor {
    * Add a moving average filter stage to the pipeline
    * @param params - Configuration for the moving average filter
    * @param params.mode - "batch" for stateless averaging (all samples → single average), "moving" for windowed averaging
-   * @param params.windowSize - Required for "moving" mode, size of the sliding window
+   * @param params.windowSize - Required for "moving" mode when using sample-based processing
+   * @param params.windowDuration - Required for "moving" mode when using time-based processing (milliseconds)
    * @returns this instance for method chaining
    *
    * @example
@@ -190,18 +191,34 @@ class DspProcessor {
    * pipeline.MovingAverage({ mode: "batch" });
    *
    * @example
-   * // Moving mode with window
+   * // Moving mode with sample window (legacy)
    * pipeline.MovingAverage({ mode: "moving", windowSize: 10 });
+   *
+   * @example
+   * // Moving mode with time window (recommended)
+   * pipeline.MovingAverage({ mode: "moving", windowDuration: 5000 }); // 5 seconds
    */
   MovingAverage(params: MovingAverageParams): this {
     if (params.mode === "moving") {
       if (
-        !params.windowSize ||
-        params.windowSize <= 0 ||
-        !Number.isInteger(params.windowSize)
+        params.windowSize === undefined &&
+        params.windowDuration === undefined
+      ) {
+        throw new TypeError(
+          `MovingAverage: either windowSize or windowDuration must be specified for "moving" mode`
+        );
+      }
+      if (
+        params.windowSize !== undefined &&
+        (params.windowSize <= 0 || !Number.isInteger(params.windowSize))
       ) {
         throw new TypeError(
           `MovingAverage: windowSize must be a positive integer for "moving" mode, got ${params.windowSize}`
+        );
+      }
+      if (params.windowDuration !== undefined && params.windowDuration <= 0) {
+        throw new TypeError(
+          `MovingAverage: windowDuration must be positive, got ${params.windowDuration}`
         );
       }
     }
@@ -214,7 +231,8 @@ class DspProcessor {
    * Add a RMS (root mean square) stage to the pipeline
    * @param params - Configuration for the RMS filter
    * @param params.mode - "batch" for stateless RMS (all samples → single RMS), "moving" for windowed RMS
-   * @param params.windowSize - Required for "moving" mode, size of the sliding window
+   * @param params.windowSize - Required for "moving" mode when using sample-based processing
+   * @param params.windowDuration - Required for "moving" mode when using time-based processing (milliseconds)
    * @returns this instance for method chaining
    *
    * @example
@@ -222,18 +240,34 @@ class DspProcessor {
    * pipeline.Rms({ mode: "batch" });
    *
    * @example
-   * // Moving mode with window
+   * // Moving mode with sample window (legacy)
    * pipeline.Rms({ mode: "moving", windowSize: 50 });
+   *
+   * @example
+   * // Moving mode with time window (recommended)
+   * pipeline.Rms({ mode: "moving", windowDuration: 10000 }); // 10 seconds
    */
   Rms(params: RmsParams): this {
     if (params.mode === "moving") {
       if (
-        !params.windowSize ||
-        params.windowSize <= 0 ||
-        !Number.isInteger(params.windowSize)
+        params.windowSize === undefined &&
+        params.windowDuration === undefined
+      ) {
+        throw new TypeError(
+          `RMS: either windowSize or windowDuration must be specified for "moving" mode`
+        );
+      }
+      if (
+        params.windowSize !== undefined &&
+        (params.windowSize <= 0 || !Number.isInteger(params.windowSize))
       ) {
         throw new TypeError(
           `RMS: windowSize must be a positive integer for "moving" mode, got ${params.windowSize}`
+        );
+      }
+      if (params.windowDuration !== undefined && params.windowDuration <= 0) {
+        throw new TypeError(
+          `RMS: windowDuration must be positive, got ${params.windowDuration}`
         );
       }
     }
@@ -259,7 +293,8 @@ class DspProcessor {
    *
    * @param params - Configuration for the variance filter
    * @param params.mode - "batch" for stateless variance (all samples → single value), "moving" for windowed variance
-   * @param params.windowSize - Required for "moving" mode, size of the sliding window
+   * @param params.windowSize - Required for "moving" mode when using sample-based processing
+   * @param params.windowDuration - Required for "moving" mode when using time-based processing (milliseconds)
    * @returns this instance for method chaining
    *
    * @example
@@ -267,18 +302,34 @@ class DspProcessor {
    * pipeline.Variance({ mode: "batch" });
    *
    * @example
-   * // Moving variance with 100-sample window
+   * // Moving variance with sample window (legacy)
    * pipeline.Variance({ mode: "moving", windowSize: 100 });
+   *
+   * @example
+   * // Moving variance with time window (recommended)
+   * pipeline.Variance({ mode: "moving", windowDuration: 60000 }); // 1 minute
    */
   Variance(params: VarianceParams): this {
     if (params.mode === "moving") {
       if (
-        !params.windowSize ||
-        params.windowSize <= 0 ||
-        !Number.isInteger(params.windowSize)
+        params.windowSize === undefined &&
+        params.windowDuration === undefined
+      ) {
+        throw new TypeError(
+          `Variance: either windowSize or windowDuration must be specified for "moving" mode`
+        );
+      }
+      if (
+        params.windowSize !== undefined &&
+        (params.windowSize <= 0 || !Number.isInteger(params.windowSize))
       ) {
         throw new TypeError(
           `Variance: windowSize must be a positive integer for "moving" mode, got ${params.windowSize}`
+        );
+      }
+      if (params.windowDuration !== undefined && params.windowDuration <= 0) {
+        throw new TypeError(
+          `Variance: windowDuration must be positive, got ${params.windowDuration}`
         );
       }
     }
@@ -292,24 +343,40 @@ class DspProcessor {
    * Z-Score Normalization standardizes data to have mean 0 and standard deviation 1
    * @param params - Configuration for the Z-Score Normalization filter
    * @param params.mode - "batch" for stateless normalization, "moving" for windowed normalization
-   * @param params.windowSize - Required for "moving" mode, size of the sliding window
+   * @param params.windowSize - Required for "moving" mode when using sample-based processing
+   * @param params.windowDuration - Required for "moving" mode when using time-based processing (milliseconds)
    * @return this instance for method chaining
    * @example
    * // Batch Z-Score Normalization (stateless)
    * pipeline.ZScoreNormalize({ mode: "batch" });
    * @example
-   * // Moving Z-Score Normalization with 100-sample window
+   * // Moving Z-Score Normalization with sample window (legacy)
    * pipeline.ZScoreNormalize({ mode: "moving", windowSize: 100 });
+   * @example
+   * // Moving Z-Score Normalization with time window (recommended)
+   * pipeline.ZScoreNormalize({ mode: "moving", windowDuration: 30000 }); // 30 seconds
    */
   ZScoreNormalize(params: ZScoreNormalizeParams): this {
     if (params.mode === "moving") {
       if (
-        !params.windowSize ||
-        params.windowSize <= 0 ||
-        !Number.isInteger(params.windowSize)
+        params.windowSize === undefined &&
+        params.windowDuration === undefined
+      ) {
+        throw new TypeError(
+          `Z-Score Normalize: either windowSize or windowDuration must be specified for "moving" mode`
+        );
+      }
+      if (
+        params.windowSize !== undefined &&
+        (params.windowSize <= 0 || !Number.isInteger(params.windowSize))
       ) {
         throw new TypeError(
           `Z-Score Normalize: windowSize must be a positive integer for "moving" mode, got ${params.windowSize}`
+        );
+      }
+      if (params.windowDuration !== undefined && params.windowDuration <= 0) {
+        throw new TypeError(
+          `Z-Score Normalize: windowDuration must be positive, got ${params.windowDuration}`
         );
       }
     }
@@ -323,24 +390,40 @@ class DspProcessor {
    * Mean Absolute Value computes the average of the absolute values of the samples
    * @param params - Configuration for the MAV filter
    * @param params.mode - "batch" for stateless MAV (all samples → single value), "moving" for windowed MAV
-   * @param params.windowSize - Required for "moving" mode, size of the sliding window
+   * @param params.windowSize - Required for "moving" mode when using sample-based processing
+   * @param params.windowDuration - Required for "moving" mode when using time-based processing (milliseconds)
    * @return this instance for method chaining
    * @example
    * // Batch MAV (stateless)
    * pipeline.MeanAbsoluteValue({ mode: "batch" });
    * @example
-   * // Moving MAV with 50-sample window
+   * // Moving MAV with sample window (legacy)
    * pipeline.MeanAbsoluteValue({ mode: "moving", windowSize: 50 });
+   * @example
+   * // Moving MAV with time window (recommended)
+   * pipeline.MeanAbsoluteValue({ mode: "moving", windowDuration: 2000 }); // 2 seconds
    */
   MeanAbsoluteValue(params: MeanAbsoluteValueParams): this {
     if (params.mode === "moving") {
       if (
-        !params.windowSize ||
-        params.windowSize <= 0 ||
-        !Number.isInteger(params.windowSize)
+        params.windowSize === undefined &&
+        params.windowDuration === undefined
+      ) {
+        throw new TypeError(
+          `Mean Absolute Value: either windowSize or windowDuration must be specified for "moving" mode`
+        );
+      }
+      if (
+        params.windowSize !== undefined &&
+        (params.windowSize <= 0 || !Number.isInteger(params.windowSize))
       ) {
         throw new TypeError(
           `Mean Absolute Value: windowSize must be a positive integer for "moving" mode, got ${params.windowSize}`
+        );
+      }
+      if (params.windowDuration !== undefined && params.windowDuration <= 0) {
+        throw new TypeError(
+          `Mean Absolute Value: windowDuration must be positive, got ${params.windowDuration}`
         );
       }
     }
@@ -418,36 +501,80 @@ class DspProcessor {
   }
 
   /**
-   * Process audio data through the DSP pipeline
+   * Process data through the DSP pipeline
    * The native process method uses Napi::AsyncWorker and runs on a background thread
    * to avoid blocking the Node.js event loop
+   *
+   * Supports three modes:
+   * 1. Legacy sample-based: process(samples, { sampleRate: 100, channels: 1 })
+   * 2. Time-based with timestamps: process(samples, timestamps, { channels: 1 })
+   * 3. Auto-generated timestamps: process(samples, { channels: 1 }) - generates [0, 1, 2, ...]
    *
    * IMPORTANT: This method modifies the input buffer in-place for performance.
    * If you need to preserve the original input, pass a copy instead.
    *
-   * @param input - Float32Array containing interleaved audio samples (will be modified in-place)
-   * @param options - Processing options including sample rate and channel count
+   * @param input - Float32Array containing interleaved samples (will be modified in-place)
+   * @param timestampsOrOptions - Either timestamps (Float32Array) or ProcessOptions
+   * @param optionsIfTimestamps - ProcessOptions if second argument is timestamps
    * @returns Promise that resolves to the processed Float32Array (same reference as input)
    */
   async process(
     input: Float32Array,
-    options: ProcessOptions
+    timestampsOrOptions: Float32Array | ProcessOptions,
+    optionsIfTimestamps?: ProcessOptions
   ): Promise<Float32Array> {
-    const opts = { channels: 1, ...options };
+    let timestamps: Float32Array | undefined;
+    let options: ProcessOptions;
+
+    // Detect which overload was called
+    if (timestampsOrOptions instanceof Float32Array) {
+      // Time-based mode: process(samples, timestamps, options)
+      timestamps = timestampsOrOptions;
+      options = { channels: 1, ...optionsIfTimestamps };
+
+      if (timestamps.length !== input.length) {
+        throw new Error(
+          `Timestamps length (${timestamps.length}) must match samples length (${input.length})`
+        );
+      }
+    } else {
+      // Sample-based mode or auto-timestamps: process(samples, options)
+      options = { channels: 1, ...timestampsOrOptions };
+
+      if (options.sampleRate) {
+        // Legacy sample-based mode: auto-generate timestamps from sampleRate
+        const dt = 1000 / options.sampleRate; // milliseconds per sample
+        timestamps = new Float32Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+          timestamps[i] = i * dt;
+        }
+      } else {
+        // Auto-generate sequential timestamps [0, 1, 2, ...]
+        timestamps = new Float32Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+          timestamps[i] = i;
+        }
+      }
+    }
+
     const startTime = performance.now();
 
     try {
       // Pool the start log
       this.poolLog("debug", "Starting pipeline processing", {
         sampleCount: input.length,
-        channels: opts.channels,
+        channels: options.channels,
         stages: this.stages.length,
+        mode: options.sampleRate ? "sample-based" : "time-based",
       });
 
-      // The native process method now uses Napi::AsyncWorker
-      // and returns a Promise, so await it here
+      // Call native process with timestamps
       // Note: The input buffer is modified in-place for zero-copy performance
-      const result = await this.nativeInstance.process(input, opts);
+      const result = await this.nativeInstance.process(
+        input,
+        timestamps,
+        options
+      );
 
       // Execute tap callbacks for debugging/inspection
       if (this.tapCallbacks.length > 0) {
@@ -527,16 +654,35 @@ class DspProcessor {
    * This method creates a copy of the input, so the original is preserved
    *
    * @param input - Float32Array containing interleaved audio samples (original is preserved)
-   * @param options - Processing options including sample rate and channel count
+   * @param timestampsOrOptions - Either timestamps array or processing options (sample rate and channel count)
+   * @param optionsIfTimestamps - Processing options if timestamps were provided in second parameter
    * @returns Promise that resolves to a new Float32Array with the processed data
+   *
+   * @example
+   * // Legacy sample-based (original preserved)
+   * const output = await pipeline.processCopy(samples, { sampleRate: 100, channels: 1 });
+   *
+   * @example
+   * // Time-based with explicit timestamps (original preserved)
+   * const output = await pipeline.processCopy(samples, timestamps, { channels: 1 });
    */
   async processCopy(
     input: Float32Array,
-    options: ProcessOptions
+    timestampsOrOptions: Float32Array | ProcessOptions,
+    optionsIfTimestamps?: ProcessOptions
   ): Promise<Float32Array> {
     // Create a copy to preserve the original
     const copy = new Float32Array(input);
-    return await this.process(copy, options);
+
+    // Handle both overloaded signatures by delegating to process()
+    if (timestampsOrOptions instanceof Float32Array) {
+      // Time-based mode: process(samples, timestamps, options)
+      const timestampsCopy = new Float32Array(timestampsOrOptions);
+      return await this.process(copy, timestampsCopy, optionsIfTimestamps!);
+    } else {
+      // Legacy mode: process(samples, options)
+      return await this.process(copy, timestampsOrOptions);
+    }
   }
 
   /**

@@ -39,7 +39,7 @@ namespace dsp::adapters
         /**
          * @brief Applies in-place rectification based on the configured mode.
          */
-        void process(float *buffer, size_t numSamples, int /*numChannels*/) override
+        void process(float *buffer, size_t numSamples, int /*numChannels*/, const float * /*timestamps*/ = nullptr) override
         {
             for (size_t i = 0; i < numSamples; ++i)
             {

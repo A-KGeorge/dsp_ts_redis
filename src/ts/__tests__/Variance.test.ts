@@ -225,7 +225,7 @@ describe("Variance Filter", () => {
             windowSize: undefined as any,
           });
         },
-        { message: /windowSize must be a positive integer/ }
+        { message: /either windowSize or windowDuration must be specified/ }
       );
     });
 
