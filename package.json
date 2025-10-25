@@ -6,7 +6,7 @@
   "scripts": {
     "test": "node scripts/test.js",
     "build": "node-gyp rebuild && node -e \"require('fs').cpSync('build/Release/dsp-ts-redis.node', 'src/build/dsp-ts-redis.node', {force:true}); console.log(`Copied build/Release/dsp-ts-redis.node to src/build/dsp-ts-redis.node`);\"",
-    "prebuild": "prebuildify --napi --strip",
+    "prebuildify": "prebuildify --napi --strip",
     "start": "tsx ./src/ts/index.ts"
   },
   "binary": {

@@ -31,6 +31,14 @@ namespace dsp::core
          */
         explicit MovingZScoreFilter(size_t window_size, T epsilon = 1e-6);
 
+        /**
+         * @brief Constructs a new time-aware Moving Z-Score Filter.
+         * @param window_size The buffer capacity in samples.
+         * @param window_duration_ms The time window duration in milliseconds.
+         * @param epsilon A small value to prevent division by zero (default 1e-6).
+         */
+        explicit MovingZScoreFilter(size_t window_size, double window_duration_ms, T epsilon = 1e-6);
+
         // Delete copy constructor and copy assignment
         MovingZScoreFilter(const MovingZScoreFilter &) = delete;
         MovingZScoreFilter &operator=(const MovingZScoreFilter &) = delete;
@@ -52,6 +60,17 @@ namespace dsp::core
         T addSample(T newValue);
 
         /**
+         * @brief Adds a new sample with timestamp and returns its Z-Score.
+         *
+         * Expires old samples, rebuilds statistics, then adds new sample.
+         *
+         * @param newValue The new sample value to add.
+         * @param timestamp The timestamp in milliseconds.
+         * @return T The Z-Score of the new sample.
+         */
+        T addSampleWithTimestamp(T newValue, double timestamp);
+
+        /**
          * @brief Clears all samples from the filter and resets the sums.
          */
         void clear();
@@ -61,6 +80,12 @@ namespace dsp::core
          * @return true if the buffer is full, false otherwise.
          */
         bool isFull() const noexcept;
+
+        /**
+         * @brief Checks if the filter is in time-aware mode.
+         * @return true if time-aware, false otherwise.
+         */
+        bool isTimeAware() const noexcept;
 
         /**
          * @brief Exports the filter's internal state.

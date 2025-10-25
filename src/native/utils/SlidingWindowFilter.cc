@@ -17,6 +17,20 @@ SlidingWindowFilter<T, Policy>::SlidingWindowFilter(size_t window_size, Policy p
 }
 
 // -----------------------------------------------------------------------------
+// Constructor (Time-Aware)
+// Constructs a new time-aware sliding window filter
+// @ param window_size - The number of samples in the sliding window
+// @ param window_duration_ms - The maximum age of samples in milliseconds
+// @ param policy - An instance of the policy (default-constructed if not provided)
+// @ return void
+// -----------------------------------------------------------------------------
+template <typename T, typename Policy>
+SlidingWindowFilter<T, Policy>::SlidingWindowFilter(size_t window_size, double window_duration_ms, Policy policy)
+    : m_buffer(window_size, window_duration_ms), m_policy(std::move(policy))
+{
+}
+
+// -----------------------------------------------------------------------------
 // addSample
 // Adds a new sample to the sliding window
 // If buffer is full, removes oldest sample (delegates to policy.onRemove)
@@ -34,6 +48,58 @@ T SlidingWindowFilter<T, Policy>::addSample(T newValue)
     }
 
     m_buffer.pushOverwrite(newValue);
+    m_policy.onAdd(newValue);
+
+    return m_policy.getResult(m_buffer.getCount());
+}
+
+// -----------------------------------------------------------------------------
+// addSampleWithTimestamp
+// Adds a new sample with timestamp (time-aware mode)
+// Expires old samples first, then adds the new sample
+// @ param newValue - The new sample to add
+// @ param timestamp - The timestamp in milliseconds
+// @ return T - The computed result from the policy
+// -----------------------------------------------------------------------------
+template <typename T, typename Policy>
+T SlidingWindowFilter<T, Policy>::addSampleWithTimestamp(T newValue, double timestamp)
+{
+    if (!m_buffer.isTimeAware())
+    {
+        throw std::runtime_error("addSampleWithTimestamp requires time-aware mode");
+    }
+
+    // First, expire old samples and update policy
+    while (m_buffer.getCount() > 0)
+    {
+        size_t initial_count = m_buffer.getCount();
+        m_buffer.expireOld(timestamp);
+        size_t expired_count = initial_count - m_buffer.getCount();
+
+        // We need to reconstruct the policy state from remaining samples
+        // This is inefficient but correct. Better approach: track what was removed
+        if (expired_count > 0)
+        {
+            // Rebuild policy from scratch using remaining samples
+            m_policy.clear();
+            auto remaining = m_buffer.toVector();
+            for (const auto &value : remaining)
+            {
+                m_policy.onAdd(value);
+            }
+        }
+        break; // expireOld already removed all expired samples
+    }
+
+    // Check if buffer is full (by sample count)
+    if (m_buffer.isFull())
+    {
+        T oldestValue = m_buffer.peek();
+        m_policy.onRemove(oldestValue);
+    }
+
+    // Add the new sample
+    m_buffer.pushOverwriteWithTimestamp(newValue, timestamp);
     m_policy.onAdd(newValue);
 
     return m_policy.getResult(m_buffer.getCount());

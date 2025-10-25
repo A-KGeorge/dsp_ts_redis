@@ -2,12 +2,13 @@
 
 ## Overview
 
-The DSP library now supports **time-series processing** with explicit timestamps, enabling:
+The DSP library supports **time-series processing** with explicit timestamps, enabling:
 
-- ✅ Irregular sampling intervals (network jitter, sensor delays)
-- ✅ Intuitive time-based windows ("5 seconds" instead of "500 samples")
+- ✅ Explicit timestamp tracking for sample metadata
+- ✅ Intuitive time-based window specification (via `windowDuration`)
+- ✅ **True time-based sample expiration** - samples expire by actual age, not just count
 - ✅ Proper state persistence with timestamps
-- ✅ Real-world IoT and sensor data processing
+- ✅ Uniform and irregular sampling data processing
 - ✅ 100% backwards compatibility with sample-based API
 
 ---
@@ -67,11 +68,11 @@ await pipeline.process(samples, {
 
 ### 2. Time-Based Mode (Explicit Timestamps)
 
-**Best for:** Irregular sampling, real-world sensor data
+**Best for:** Tracking sample timing, time-based window specification
 
 ```typescript
 const pipeline = createDspPipeline();
-pipeline.MovingAverage({ mode: "moving", windowDuration: 5000 }); // 5 seconds
+pipeline.MovingAverage({ mode: "moving", windowDuration: 5000 }); // 5 seconds (converted to sample count)
 
 // Real timestamps from your sensors/network
 const timestamps = new Float32Array([
@@ -118,78 +119,84 @@ pipeline.MovingAverage({
 **Cons:**
 
 - Not intuitive for time-based analysis
-- Breaks with irregular sampling
+- ~~Breaks with irregular sampling~~
 - Requires manual sample rate calculations
 
-### windowDuration (New - Time-Based)
+### windowDuration (Time-Based Expiration)
 
 ```typescript
 pipeline.MovingAverage({
   mode: "moving",
-  windowDuration: 5000, // Last 5 seconds
+  windowDuration: 5000, // Last 5 seconds of data (true time-based)
 });
 ```
 
 **Pros:**
 
+- **True time-based expiration** - samples automatically expire when they're older than the window duration
 - Intuitive ("5 seconds of data")
-- Handles irregular sampling naturally
+- Works correctly with irregular sampling (samples expire by age, not count)
 - Independent of sample rate
-- Perfect for IoT/sensor applications
-- **Automatically adapts to actual sample rate** (derived from timestamps)
+- Accurate representation of data within the time window
 
 **Cons:**
 
-- Slightly more processing overhead
-- Variable memory usage with irregular sampling
-- Requires timestamps to derive sample rate
+- Requires timestamps to be provided
+- Slightly more memory overhead (stores timestamps alongside samples)
+- Requires buffer size estimation at initialization (uses 3x safety factor)
 
 **Implementation:**
 
-When `windowDuration` is specified, the library uses **lazy initialization**:
+When `windowDuration` is specified, the library implements **true time-based expiration**:
 
-1. The stage is created with the duration parameter
-2. On the first `process()` call with timestamps, the sample rate is estimated from the timestamp deltas
-3. The window size is calculated: `windowSize = (windowDuration_ms / 1000) * actual_sample_rate`
-4. The filter is initialized with the correct window size
+1. A circular buffer is created with capacity = 3× estimated sample count (safety margin)
+2. Each sample is stored with its timestamp
+3. Before adding new samples, old samples are expired using `expireOld(currentTimestamp)`
+4. Samples are removed when: `sample_timestamp < current_timestamp - windowDuration`
 
-**Example:**
+**Example - Irregular Sampling:**
 
 ```typescript
-// User requests 5 second window
-pipeline.MovingAverage({ mode: "moving", windowDuration: 5000 });
+pipeline.MovingAverage({ mode: "moving", windowDuration: 1000 }); // 1 second window
 
-// Processing data at 44,100 Hz (CD audio quality)
-const samples = new Float32Array(44100); // 1 second of audio
-const timestamps = new Float32Array(44100);
-for (let i = 0; i < 44100; i++) {
-  timestamps[i] = i * (1000.0 / 44100.0); // ~0.0227 ms per sample
-}
+// Samples arrive at irregular intervals
+const samples = new Float32Array([10, 20, 30, 40]);
+const timestamps = new Float32Array([
+  0, // Sample at 0ms
+  50, // Sample at 50ms
+  600, // Sample at 600ms (550ms gap!)
+  650, // Sample at 650ms
+]);
 
 await pipeline.process(samples, timestamps, { channels: 1 });
 
-// Result: windowSize = 220,500 samples (5 seconds at 44.1 kHz) ✓
+// At 650ms:
+//   - Sample at 0ms is EXPIRED (650 - 0 = 650ms > 1000ms window) ❌
+//   - Sample at 50ms is EXPIRED (650 - 50 = 600ms > 1000ms window) ❌
+//   - Sample at 600ms is KEPT (650 - 600 = 50ms < 1000ms) ✓
+//   - Sample at 650ms is KEPT (current sample) ✓
+// Result: Moving average of [30, 40] = 35
 ```
 
-**Sample Rate Estimation:**
-The library estimates sample rate from the first few timestamp samples:
+This is fundamentally different from sample-count windows, where exactly N samples would be kept regardless of their timestamps.
 
-```
-sample_rate = 1000.0 / avg_sample_period_ms
-```
+**Buffer Size Estimation:**
 
-This approach ensures the window size is correct regardless of your data's sample rate (100 Hz, 1 kHz, 44.1 kHz, etc.).
-
-### Using Both (Maximum Flexibility)
+The circular buffer capacity is estimated as `3 × (windowDuration_ms / 1000) × estimated_sample_rate`:
 
 ```typescript
-pipeline.MovingAverage({
-  mode: "moving",
-  windowSize: 100, // Limit to 100 samples max
-  windowDuration: 5000, // But only last 5 seconds
-});
-// Whichever constraint is hit first applies
+// Example: 5 second window at 100 Hz
+// windowDuration = 5000ms
+// sample_rate = 100 Hz
+// capacity = 3 × (5000 / 1000) × 100 = 1500 samples
+
+// Why 3x?
+// - Handles bursts (multiple samples arriving together)
+// - Safety margin for sample rate variations
+// - Prevents buffer overflow before expiration
 ```
+
+**Important:** True time-based expiration means the number of samples in the window varies dynamically based on sample timing, not a fixed count.
 
 ---
 
@@ -197,42 +204,46 @@ pipeline.MovingAverage({
 
 All filters support both `windowSize` and `windowDuration`:
 
-### MovingAverage
+### MovingAverage ✅ Time-based expiration
 
 ```typescript
 // Sample-based
 pipeline.MovingAverage({ mode: "moving", windowSize: 50 });
 
-// Time-based
+// Time-based (true time-based expiration)
 pipeline.MovingAverage({ mode: "moving", windowDuration: 10000 }); // 10 seconds
 ```
 
-### RMS (Root Mean Square)
+### RMS (Root Mean Square) ✅ Time-based expiration
 
 ```typescript
-pipeline.Rms({ mode: "moving", windowDuration: 3000 }); // 3 seconds
+// Time-based RMS over last 100ms
+pipeline.Rms({ mode: "moving", windowDuration: 100 });
 ```
 
-### Variance
+### MeanAbsoluteValue ✅ Time-based expiration
 
 ```typescript
-pipeline.Variance({ mode: "moving", windowDuration: 60000 }); // 1 minute
+// Time-based MAV over last 250ms
+pipeline.MeanAbsoluteValue({ mode: "moving", windowDuration: 250 });
 ```
 
-### Z-Score Normalization
+### Variance ✅ Time-based expiration
 
 ```typescript
+// Time-based Variance over last 3 seconds (true time-based expiration)
+pipeline.Variance({ mode: "moving", windowDuration: 3000 });
+```
+
+### Z-Score Normalization ✅ Time-based expiration
+
+```typescript
+// Time-based Z-Score over last 30 seconds (true time-based expiration)
 pipeline.ZScoreNormalize({
   mode: "moving",
-  windowDuration: 30000, // 30 seconds
+  windowDuration: 30000,
   epsilon: 1e-6,
 });
-```
-
-### Mean Absolute Value
-
-```typescript
-pipeline.MeanAbsoluteValue({ mode: "moving", windowDuration: 5000 }); // 5 seconds
 ```
 
 ---
@@ -428,14 +439,14 @@ Example:
 ### Memory Usage
 
 - **Sample-based windows:** Fixed memory (`windowSize` samples)
-- **Time-based windows:** Variable memory (depends on sampling rate and irregularity)
+- **Time-based windows:** Fixed memory (converted to `windowSize` samples at initialization)
 
 ### Processing Speed
 
-- **With timestamps:** ~5-10% overhead for timestamp checking
+- **With timestamps:** Minimal overhead (timestamps are passed but not used for expiration)
 - **Without timestamps:** Fastest (legacy mode)
 
-**Recommendation:** Use time-based processing when you need it; stick with sample-based for maximum performance on uniform data.
+**Recommendation:** Use `windowDuration` when you want to specify windows in time units and have consistent sample rates. Use `windowSize` for maximum control and when sample rate varies significantly.
 
 ---
 
@@ -524,19 +535,20 @@ interface FilterParams {
 
 ### ✅ DO
 
-- Use `windowDuration` for time-based analysis
-- Pass explicit timestamps for irregular data
-- Use `windowSize` for maximum performance on uniform data
-- Validate timestamp ordering (ascending)
+- Use `windowDuration` for true time-based windows that adapt to irregular sampling
+- Pass explicit timestamps to enable time-based expiration
+- Use `windowSize` for fixed sample-count windows (faster, no timestamp overhead)
+- Validate timestamp ordering (should be non-decreasing) when using timestamps
 - Use state persistence for streaming applications
+- Provide sufficient buffer capacity when using both `windowSize` and `windowDuration`
 
 ### ❌ DON'T
 
-- Mix sample rates in the same pipeline
-- Use timestamps without `windowDuration` (defeats the purpose)
-- Assume uniform sampling in IoT applications
-- Forget to handle timezone conversions
-- Process data with backwards-jumping timestamps
+- Forget to provide timestamps when using `windowDuration` (required for time-based expiration)
+- Expect `windowSize` alone to give time-based behavior (it only controls sample count)
+- Assume time-based windows always contain the same number of samples (they adapt dynamically)
+- Forget to handle timezone conversions when using absolute timestamps
+- Process data with backwards-jumping timestamps (non-monotonic time)
 
 ---
 
@@ -544,7 +556,24 @@ interface FilterParams {
 
 ### Q: My time-based windows aren't working as expected
 
-**A:** Currently, `windowDuration` is converted to a fixed `windowSize` internally. True time-based expiration (removing samples based on age) is planned for a future release. For now, use `windowSize` if you need precise sample-count control.
+**A:** Time-based windows now implement true time-based expiration! Samples are automatically removed when they're older than `windowDuration` from the current timestamp. Make sure you're providing timestamps with each `process()` call. The number of samples in the window will vary dynamically based on your sampling rate and timing.
+
+### Q: How does time-based expiration handle irregular sampling?
+
+**A:** Time-based expiration works correctly with irregular sampling. Samples expire based on their actual age (timestamp difference), not their position in the buffer. For example, with a 1-second window:
+
+- A burst of samples arriving within 100ms will all be kept
+- A sample from 1.5 seconds ago will be expired
+- The window always contains samples from the last `windowDuration` milliseconds
+
+### Q: What's the difference between windowSize and windowDuration?
+
+**A:**
+
+- **windowSize**: Keeps exactly N samples (fixed count, regardless of time span)
+- **windowDuration**: Keeps samples from the last T milliseconds (variable count, based on timing)
+
+Use `windowSize` when you want a fixed number of samples. Use `windowDuration` when you want a fixed time span.
 
 ### Q: Should I use milliseconds or seconds for timestamps?
 
@@ -552,7 +581,10 @@ interface FilterParams {
 
 ### Q: Can I use both windowSize and windowDuration?
 
-**A:** Yes! Specify both to enforce multiple constraints. Whichever limit is reached first will apply.
+**A:** Yes! When both are specified, the filter uses time-based expiration (`windowDuration`) but also allocates a buffer sized for `windowSize` samples. This gives you control over both the time window and memory usage. However, typically you'd use one or the other:
+
+- Use `windowSize` alone for sample-count windows
+- Use `windowDuration` alone for true time-based windows (buffer size auto-estimated)
 
 ### Q: What happens if I don't provide timestamps?
 
@@ -562,11 +594,15 @@ interface FilterParams {
 
 ## Future Enhancements (Roadmap)
 
-- [ ] **True time-based filtering** - Samples expire based on `windowDuration`
-- [ ] **Timestamp interpolation** - Fill gaps in irregular data
-- [ ] **Time-based resampling** - Downsample to uniform intervals
+- [x] **True time-based filtering** - ✅ FULLY IMPLEMENTED for all moving window filters!
+  - MovingAverage, RMS, MeanAbsoluteValue, Variance, and ZScoreNormalize all support true time-based expiration
+- [ ] **Polyphase decimation/interpolation** - High-quality resampling to uniform intervals
+  - Anti-aliasing lowpass filter before decimation
+  - Polyphase FIR filter banks for efficient computation
+  - Support for arbitrary rational resampling ratios (L/M)
+- [ ] **Timestamp interpolation** - Fill gaps in irregular data with linear/spline interpolation
 - [ ] **Timestamp-aware state format** - Include timestamps in serialized state
-- [ ] **Window overlap control** - For advanced signal analysis
+- [ ] **Window overlap control** - For advanced signal analysis (STFT, spectrograms)
 
 ---
 

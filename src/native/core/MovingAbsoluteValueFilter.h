@@ -36,6 +36,24 @@ namespace dsp::core
             }
         }
 
+        /**
+         * @brief Constructs a new time-aware MAV Filter.
+         * @param window_size The buffer capacity in samples.
+         * @param window_duration_ms The time window duration in milliseconds.
+         */
+        explicit MovingAbsoluteValueFilter(size_t window_size, double window_duration_ms)
+            : m_filter(window_size, window_duration_ms, MeanAbsoluteValuePolicy<T>{})
+        {
+            if (window_size == 0)
+            {
+                throw std::invalid_argument("Window size must be greater than 0");
+            }
+            if (window_duration_ms <= 0.0)
+            {
+                throw std::invalid_argument("Window duration must be greater than 0");
+            }
+        }
+
         // Delete copy constructor and copy assignment
         MovingAbsoluteValueFilter(const MovingAbsoluteValueFilter &) = delete;
         MovingAbsoluteValueFilter &operator=(const MovingAbsoluteValueFilter &) = delete;
@@ -50,6 +68,17 @@ namespace dsp::core
          * @return T The new mean absolute value.
          */
         T addSample(T newValue) { return m_filter.addSample(newValue); }
+
+        /**
+         * @brief Adds a new sample with timestamp (time-aware mode).
+         * @param newValue The new sample value to add (can be negative).
+         * @param timestamp The timestamp in milliseconds.
+         * @return T The new mean absolute value.
+         */
+        T addSampleWithTimestamp(T newValue, double timestamp)
+        {
+            return m_filter.addSampleWithTimestamp(newValue, timestamp);
+        }
 
         /**
          * @brief Gets the current mean absolute value.
@@ -67,6 +96,12 @@ namespace dsp::core
          * @return true if the buffer is full, false otherwise.
          */
         bool isFull() const noexcept { return m_filter.isFull(); }
+
+        /**
+         * @brief Checks if the filter is in time-aware mode.
+         * @return true if time-aware, false otherwise.
+         */
+        bool isTimeAware() const noexcept { return m_filter.isTimeAware(); }
 
         /**
          * @brief Exports the filter's internal state.

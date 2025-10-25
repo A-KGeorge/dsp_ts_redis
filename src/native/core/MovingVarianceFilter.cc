@@ -19,6 +19,26 @@ MovingVarianceFilter<T>::MovingVarianceFilter(size_t window_size)
 }
 
 // -----------------------------------------------------------------------------
+// Time-aware Constructor
+// -----------------------------------------------------------------------------
+template <typename T>
+MovingVarianceFilter<T>::MovingVarianceFilter(size_t window_size, double window_duration_ms)
+    : buffer(window_size, window_duration_ms), // Initialize time-aware circular buffer
+      running_sum(0),
+      running_sum_of_squares(0),
+      window_size(window_size)
+{
+    if (window_size == 0)
+    {
+        throw std::invalid_argument("Window size must be greater than 0");
+    }
+    if (window_duration_ms <= 0.0)
+    {
+        throw std::invalid_argument("Window duration must be greater than 0");
+    }
+}
+
+// -----------------------------------------------------------------------------
 // Method: addSample
 // -----------------------------------------------------------------------------
 template <typename T>
@@ -43,6 +63,49 @@ T MovingVarianceFilter<T>::addSample(T newValue)
     running_sum_of_squares = running_sum_of_squares - oldestValueSquared + newValueSquared;
 
     // Return the new variance
+    return getVariance();
+}
+
+// -----------------------------------------------------------------------------
+// Method: addSampleWithTimestamp
+// -----------------------------------------------------------------------------
+template <typename T>
+T MovingVarianceFilter<T>::addSampleWithTimestamp(T newValue, double timestamp)
+{
+    // Expire old samples
+    size_t initial_count = buffer.getCount();
+    size_t expired_count = buffer.expireOld(timestamp);
+
+    // Rebuild running statistics if samples were expired
+    if (expired_count > 0)
+    {
+        running_sum = 0;
+        running_sum_of_squares = 0;
+
+        auto remaining = buffer.toVector();
+        for (const auto &value : remaining)
+        {
+            running_sum += value;
+            running_sum_of_squares += value * value;
+        }
+    }
+
+    // Add new sample
+    T oldestValue = 0;
+    if (buffer.isFull())
+    {
+        oldestValue = buffer.peek();
+    }
+
+    buffer.pushOverwriteWithTimestamp(newValue, timestamp);
+
+    // Update running sums
+    T oldestValueSquared = oldestValue * oldestValue;
+    T newValueSquared = newValue * newValue;
+
+    running_sum = running_sum - oldestValue + newValue;
+    running_sum_of_squares = running_sum_of_squares - oldestValueSquared + newValueSquared;
+
     return getVariance();
 }
 
@@ -91,6 +154,15 @@ template <typename T>
 bool MovingVarianceFilter<T>::isFull() const noexcept
 {
     return buffer.isFull();
+}
+
+// -----------------------------------------------------------------------------
+// Method: isTimeAware
+// -----------------------------------------------------------------------------
+template <typename T>
+bool MovingVarianceFilter<T>::isTimeAware() const noexcept
+{
+    return buffer.isTimeAware();
 }
 
 // -----------------------------------------------------------------------------

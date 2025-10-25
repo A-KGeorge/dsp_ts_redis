@@ -250,7 +250,10 @@ namespace dsp::adapters
          */
         void processMoving(float *buffer, size_t numSamples, int numChannels, const float *timestamps)
         {
-            // Lazy initialization: convert windowDuration to windowSize on first call
+            // Determine if we're in time-aware mode
+            bool useTimeAware = (m_window_duration_ms > 0.0) && timestamps != nullptr;
+
+            // Lazy initialization: convert windowDuration to windowSize if needed
             if (!m_is_initialized && m_window_duration_ms > 0.0)
             {
                 if (timestamps != nullptr && numSamples > 1)
@@ -261,12 +264,9 @@ namespace dsp::adapters
                     double avg_sample_period_ms = total_time_ms / (samples_to_check - 1);
                     double estimated_sample_rate = 1000.0 / avg_sample_period_ms;
 
-                    m_window_size = static_cast<size_t>((m_window_duration_ms / 1000.0) * estimated_sample_rate);
-
-                    if (m_window_size == 0)
-                    {
-                        m_window_size = 1;
-                    }
+                    // Use 3x the estimated size for time-aware mode
+                    size_t estimated_size = static_cast<size_t>((m_window_duration_ms / 1000.0) * estimated_sample_rate);
+                    m_window_size = std::max(size_t(1), estimated_size * 3);
 
                     m_is_initialized = true;
                 }
@@ -277,12 +277,21 @@ namespace dsp::adapters
             }
 
             // Lazily initialize our filters, one for each channel
-            if (m_filters.size() != numChannels)
+            if (m_filters.size() != static_cast<size_t>(numChannels))
             {
                 m_filters.clear();
                 for (int i = 0; i < numChannels; ++i)
                 {
-                    m_filters.emplace_back(m_window_size, m_epsilon);
+                    if (useTimeAware)
+                    {
+                        // Create time-aware filter
+                        m_filters.emplace_back(m_window_size, m_window_duration_ms, m_epsilon);
+                    }
+                    else
+                    {
+                        // Create regular filter
+                        m_filters.emplace_back(m_window_size, m_epsilon);
+                    }
                 }
             }
 
@@ -290,9 +299,18 @@ namespace dsp::adapters
             for (size_t i = 0; i < numSamples; ++i)
             {
                 int channel = i % numChannels;
+                size_t sample_index = i / numChannels;
 
-                // Get sample from the correct filter, and write it back in-place
-                buffer[i] = m_filters[channel].addSample(buffer[i]);
+                if (useTimeAware)
+                {
+                    // Use time-aware processing
+                    buffer[i] = m_filters[channel].addSampleWithTimestamp(buffer[i], timestamps[sample_index]);
+                }
+                else
+                {
+                    // Use sample-count processing
+                    buffer[i] = m_filters[channel].addSample(buffer[i]);
+                }
             }
         }
 

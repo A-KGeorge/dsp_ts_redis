@@ -33,6 +33,24 @@ namespace dsp::core
             }
         }
 
+        /**
+         * @brief Constructs a new time-aware RMS Filter.
+         * @param window_size The buffer capacity in samples.
+         * @param window_duration_ms The time window duration in milliseconds.
+         */
+        explicit RmsFilter(size_t window_size, double window_duration_ms)
+            : m_filter(window_size, window_duration_ms, RmsPolicy<T>{})
+        {
+            if (window_size == 0)
+            {
+                throw std::invalid_argument("Window size must be greater than 0");
+            }
+            if (window_duration_ms <= 0.0)
+            {
+                throw std::invalid_argument("Window duration must be greater than 0");
+            }
+        }
+
         // Delete copy constructor and copy assignment
         RmsFilter(const RmsFilter &) = delete;
         RmsFilter &operator=(const RmsFilter &) = delete;
@@ -47,6 +65,17 @@ namespace dsp::core
          * @return T The new RMS value.
          */
         T addSample(T newValue) { return m_filter.addSample(newValue); }
+
+        /**
+         * @brief Adds a new sample with timestamp (time-aware mode).
+         * @param newValue The new sample value to add.
+         * @param timestamp The timestamp in milliseconds.
+         * @return T The new RMS value.
+         */
+        T addSampleWithTimestamp(T newValue, double timestamp)
+        {
+            return m_filter.addSampleWithTimestamp(newValue, timestamp);
+        }
 
         /**
          * @brief Gets the current RMS value.
@@ -64,6 +93,12 @@ namespace dsp::core
          * @return true if the buffer is full, false otherwise.
          */
         bool isFull() const noexcept { return m_filter.isFull(); }
+
+        /**
+         * @brief Checks if the filter is in time-aware mode.
+         * @return true if time-aware, false otherwise.
+         */
+        bool isTimeAware() const noexcept { return m_filter.isTimeAware(); }
 
         /**
          * @brief Exports the filter's internal state.

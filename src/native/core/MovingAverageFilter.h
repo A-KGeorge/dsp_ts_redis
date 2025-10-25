@@ -37,6 +37,24 @@ namespace dsp::core
             }
         }
 
+        /**
+         * @brief Constructs a new time-aware Moving Average Filter.
+         * @param window_size The number of samples to average over (N).
+         * @param window_duration_ms The maximum age of samples in milliseconds.
+         */
+        explicit MovingAverageFilter(size_t window_size, double window_duration_ms)
+            : m_filter(window_size, window_duration_ms, MeanPolicy<T>{})
+        {
+            if (window_size == 0)
+            {
+                throw std::invalid_argument("Window size must be greater than 0");
+            }
+            if (window_duration_ms <= 0.0)
+            {
+                throw std::invalid_argument("Window duration must be positive");
+            }
+        }
+
         // Delete copy constructor and copy assignment
         MovingAverageFilter(const MovingAverageFilter &) = delete;
         MovingAverageFilter &operator=(const MovingAverageFilter &) = delete;
@@ -51,6 +69,23 @@ namespace dsp::core
          * @return T The new moving average.
          */
         T addSample(T newValue) { return m_filter.addSample(newValue); }
+
+        /**
+         * @brief Adds a new sample with timestamp (time-aware mode only).
+         * @param newValue The new sample value to add.
+         * @param timestamp The timestamp in milliseconds.
+         * @return T The new moving average.
+         */
+        T addSampleWithTimestamp(T newValue, double timestamp)
+        {
+            return m_filter.addSampleWithTimestamp(newValue, timestamp);
+        }
+
+        /**
+         * @brief Checks if this is a time-aware filter.
+         * @return bool True if window duration is set.
+         */
+        bool isTimeAware() const noexcept { return m_filter.isTimeAware(); }
 
         /**
          * @brief Gets the current moving average.

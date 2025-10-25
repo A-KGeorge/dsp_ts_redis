@@ -29,6 +29,14 @@ namespace dsp::utils
          */
         explicit SlidingWindowFilter(size_t window_size, Policy policy = Policy());
 
+        /**
+         * @brief Constructs a new time-aware sliding window filter.
+         * @param window_size The number of samples in the sliding window.
+         * @param window_duration_ms The maximum age of samples in milliseconds.
+         * @param policy An instance of the policy (default-constructed if not provided).
+         */
+        explicit SlidingWindowFilter(size_t window_size, double window_duration_ms, Policy policy = Policy());
+
         // Delete copy constructor and copy assignment
         SlidingWindowFilter(const SlidingWindowFilter &) = delete;
         SlidingWindowFilter &operator=(const SlidingWindowFilter &) = delete;
@@ -47,6 +55,17 @@ namespace dsp::utils
          * @return T The computed result from the policy.
          */
         T addSample(T newValue);
+
+        /**
+         * @brief Adds a new sample with timestamp (time-aware mode).
+         *
+         * Expires old samples first, then adds the new sample.
+         *
+         * @param newValue The new sample to add.
+         * @param timestamp The timestamp in milliseconds.
+         * @return T The computed result from the policy.
+         */
+        T addSampleWithTimestamp(T newValue, double timestamp);
 
         /**
          * @brief Clears all samples from the filter.
@@ -72,6 +91,12 @@ namespace dsp::utils
          * @return size_t The maximum number of samples in the window.
          */
         size_t getWindowSize() const noexcept;
+
+        /**
+         * @brief Checks if this is a time-aware filter.
+         * @return bool True if window duration is set.
+         */
+        bool isTimeAware() const noexcept { return m_buffer.isTimeAware(); }
 
         /**
          * @brief Exports the buffer contents.

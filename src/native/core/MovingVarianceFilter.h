@@ -29,6 +29,13 @@ namespace dsp::core
          */
         explicit MovingVarianceFilter(size_t window_size);
 
+        /**
+         * @brief Constructs a new time-aware Moving Variance Filter.
+         * @param window_size The buffer capacity in samples.
+         * @param window_duration_ms The time window duration in milliseconds.
+         */
+        explicit MovingVarianceFilter(size_t window_size, double window_duration_ms);
+
         // Delete copy constructor and copy assignment
         MovingVarianceFilter(const MovingVarianceFilter &) = delete;
         MovingVarianceFilter &operator=(const MovingVarianceFilter &) = delete;
@@ -49,6 +56,17 @@ namespace dsp::core
         T addSample(T newValue);
 
         /**
+         * @brief Adds a new sample with timestamp (time-aware mode).
+         *
+         * Expires old samples, rebuilds statistics, then adds new sample.
+         *
+         * @param newValue The new sample value to add.
+         * @param timestamp The timestamp in milliseconds.
+         * @return T The new moving variance.
+         */
+        T addSampleWithTimestamp(T newValue, double timestamp);
+
+        /**
          * @brief Gets the current moving variance.
          * @return T The variance of the samples currently in the buffer.
          */
@@ -64,6 +82,12 @@ namespace dsp::core
          * @return true if the buffer is full, false otherwise.
          */
         bool isFull() const noexcept;
+
+        /**
+         * @brief Checks if the filter is in time-aware mode.
+         * @return true if time-aware, false otherwise.
+         */
+        bool isTimeAware() const noexcept;
 
         /**
          * @brief Exports the filter's internal state.

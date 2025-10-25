@@ -20,6 +20,27 @@ MovingZScoreFilter<T>::MovingZScoreFilter(size_t window_size, T epsilon)
 }
 
 // -----------------------------------------------------------------------------
+// Time-aware Constructor
+// -----------------------------------------------------------------------------
+template <typename T>
+MovingZScoreFilter<T>::MovingZScoreFilter(size_t window_size, double window_duration_ms, T epsilon)
+    : buffer(window_size, window_duration_ms), // Initialize time-aware circular buffer
+      running_sum(0),
+      running_sum_of_squares(0),
+      window_size(window_size),
+      m_epsilon(epsilon)
+{
+    if (window_size == 0)
+    {
+        throw std::invalid_argument("Window size must be greater than 0");
+    }
+    if (window_duration_ms <= 0.0)
+    {
+        throw std::invalid_argument("Window duration must be greater than 0");
+    }
+}
+
+// -----------------------------------------------------------------------------
 // Method: addSample
 // -----------------------------------------------------------------------------
 template <typename T>
@@ -72,6 +93,72 @@ T MovingZScoreFilter<T>::addSample(T newValue)
 }
 
 // -----------------------------------------------------------------------------
+// Method: addSampleWithTimestamp
+// -----------------------------------------------------------------------------
+template <typename T>
+T MovingZScoreFilter<T>::addSampleWithTimestamp(T newValue, double timestamp)
+{
+    // Expire old samples
+    size_t expired_count = buffer.expireOld(timestamp);
+
+    // Rebuild running statistics if samples were expired
+    if (expired_count > 0)
+    {
+        running_sum = 0;
+        running_sum_of_squares = 0;
+
+        auto remaining = buffer.toVector();
+        for (const auto &value : remaining)
+        {
+            running_sum += value;
+            running_sum_of_squares += value * value;
+        }
+    }
+
+    // Add new sample
+    T oldestValue = 0;
+    if (buffer.isFull())
+    {
+        oldestValue = buffer.peek();
+    }
+
+    buffer.pushOverwriteWithTimestamp(newValue, timestamp);
+
+    // Update running sums
+    T oldestValueSquared = oldestValue * oldestValue;
+    T newValueSquared = newValue * newValue;
+
+    running_sum = running_sum - oldestValue + newValue;
+    running_sum_of_squares = running_sum_of_squares - oldestValueSquared + newValueSquared;
+
+    // --- Calculate new stats ---
+    size_t count = buffer.getCount();
+    T countT = static_cast<T>(count);
+
+    // Calculate mean
+    T mean = running_sum / countT;
+
+    // Calculate mean of squares
+    T mean_of_squares = running_sum_of_squares / countT;
+
+    // Variance = E[X^2] - (E[X])^2
+    T variance = std::max(static_cast<T>(0), mean_of_squares - (mean * mean));
+
+    // Standard Deviation
+    T stddev = std::sqrt(variance);
+
+    // --- Calculate Z-Score ---
+    if (stddev < m_epsilon)
+    {
+        return 0; // If stddev is ~0, all values are the mean, so z-score is 0
+    }
+    else
+    {
+        return (newValue - mean) / stddev;
+    }
+}
+
+// -----------------------------------------------------------------------------
 // Method: clear
 // -----------------------------------------------------------------------------
 template <typename T>
@@ -89,6 +176,15 @@ template <typename T>
 bool MovingZScoreFilter<T>::isFull() const noexcept
 {
     return buffer.isFull();
+}
+
+// -----------------------------------------------------------------------------
+// Method: isTimeAware
+// -----------------------------------------------------------------------------
+template <typename T>
+bool MovingZScoreFilter<T>::isTimeAware() const noexcept
+{
+    return buffer.isTimeAware();
 }
 
 // -----------------------------------------------------------------------------

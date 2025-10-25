@@ -229,59 +229,69 @@ namespace dsp::adapters
          */
         void processMoving(float *buffer, size_t numSamples, int numChannels, const float *timestamps)
         {
-            // Lazy initialization: convert windowDuration to windowSize on first call
+            // Determine if we're in time-aware mode (pure duration without size, or both)
+            bool useTimeAware = (m_window_duration_ms > 0.0) && timestamps != nullptr;
+
+            // Lazy initialization: convert windowDuration to windowSize if needed
             if (!m_is_initialized && m_window_duration_ms > 0.0)
             {
                 if (timestamps != nullptr && numSamples > 1)
                 {
-                    // Estimate sample rate from timestamps (samples per millisecond)
-                    // Use first few samples to get average delta
+                    // Estimate sample rate from timestamps
                     size_t samples_to_check = std::min(numSamples, size_t(10));
                     double total_time_ms = timestamps[samples_to_check - 1] - timestamps[0];
                     double avg_sample_period_ms = total_time_ms / (samples_to_check - 1);
                     double estimated_sample_rate = 1000.0 / avg_sample_period_ms; // Hz
 
                     // Calculate window size: (duration_ms / 1000) * sample_rate
-                    m_window_size = static_cast<size_t>((m_window_duration_ms / 1000.0) * estimated_sample_rate);
-
-                    // Ensure minimum window size of 1
-                    if (m_window_size == 0)
-                    {
-                        m_window_size = 1;
-                    }
+                    // For time-aware mode, use 3x the estimated size to ensure we never
+                    // run out of buffer space before time-based expiration happens
+                    size_t estimated_size = static_cast<size_t>((m_window_duration_ms / 1000.0) * estimated_sample_rate);
+                    m_window_size = std::max(size_t(1), estimated_size * 3);
 
                     m_is_initialized = true;
                 }
                 else
                 {
-                    // No timestamps available, cannot derive sample rate
                     throw std::runtime_error("MovingAverage: windowDuration was set, but timestamps are not available to derive sample rate");
                 }
             }
 
             // Lazily initialize our filters, one for each channel
-            if (m_filters.size() != numChannels)
+            if (m_filters.size() != static_cast<size_t>(numChannels))
             {
                 m_filters.clear();
                 for (int i = 0; i < numChannels; ++i)
                 {
-                    // Create one MovingAverageFilter for each channel using emplace_back
-                    m_filters.emplace_back(m_window_size);
+                    if (useTimeAware)
+                    {
+                        // Create time-aware filter
+                        m_filters.emplace_back(m_window_size, m_window_duration_ms);
+                    }
+                    else
+                    {
+                        // Create regular filter
+                        m_filters.emplace_back(m_window_size);
+                    }
                 }
             }
 
             // Process the buffer sample by sample, de-interleaving
-            // NOTE: Current implementation uses sample-count-based windows.
-            // Time-based window expiration (using timestamps parameter) would require
-            // implementing a time-aware circular buffer that expires samples based on
-            // timestamp differences rather than sample count. This is deferred as it
-            // would require significant architectural changes to all moving window filters.
             for (size_t i = 0; i < numSamples; ++i)
             {
                 int channel = i % numChannels;
+                size_t sample_index = i / numChannels;
 
-                // Get sample from the correct filter, and write it back in-place
-                buffer[i] = m_filters[channel].addSample(buffer[i]);
+                if (useTimeAware)
+                {
+                    // Use time-aware processing
+                    buffer[i] = m_filters[channel].addSampleWithTimestamp(buffer[i], timestamps[sample_index]);
+                }
+                else
+                {
+                    // Use sample-count processing
+                    buffer[i] = m_filters[channel].addSample(buffer[i]);
+                }
             }
         }
 
