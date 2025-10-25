@@ -77,6 +77,38 @@ This roadmap outlines the planned evolution of **dsp-ts-redis** — a native **C
 
 ---
 
+### 📊 **Stage 5 — Visualization & Monitoring**
+
+| Priority | Category                                           | Status | Notes                                        |
+| -------- | -------------------------------------------------- | ------ | -------------------------------------------- |
+| 🎨       | **Server-Side Plotting** (Matplotlib/Seaborn-like) | [ ]    | Generate PNG/SVG plots for debugging/reports |
+| 📈       | **Real-Time Dashboard** (D3.js + uWS)              | [ ]    | Live signal visualization with WebSockets    |
+| 🔍       | **Signal Inspector** (Interactive Analysis)        | [ ]    | Zoom, pan, measure time-domain features      |
+| 📉       | **Spectrogram Viewer**                             | [ ]    | Time-frequency visualization                 |
+
+**Server-Side Plotting Use Cases:**
+
+- **Debugging**: Save PNG of signal before/after filtering
+- **Analysis**: Generate histograms of DriftDetector values
+- **Reporting**: Nightly jobs with emailed plot attachments
+- **CI/CD**: Automated test reports with visual validation
+
+**Real-Time Dashboard Features:**
+
+- **WebSocket Streaming**: uWebSockets for low-latency data push
+- **D3.js Visualizations**: Interactive charts, spectrograms, waterfalls
+- **Multi-Channel Display**: Synchronized views across channels
+- **State Monitoring**: Redis state visualization (like Kafka/Redis admin panels)
+- **Performance Metrics**: Latency histograms, throughput graphs
+
+**Potential Libraries:**
+
+- Server-Side: `node-canvas`, `sharp`, `svg.js` for plot generation
+- Real-Time: `uWebSockets.js` for streaming, `D3.js` for client rendering
+- Inspiration: Grafana-like dashboard for DSP pipelines
+
+---
+
 ## 📁 3. Suggested Project Structure
 
 ```
@@ -127,8 +159,11 @@ dsp-ts-redis/
 
 ## 🚀 **Next Goals**
 
-- [ ] Add time-domain EMG features (`waveformLength`, `willisonAmplitude`, `slopeSignChange`)
+- [x] Add time-domain EMG features (`waveformLength`, `willisonAmplitude`, `slopeSignChange`)
+- [x] Implement true time-based filtering with sample expiration by age
 - [ ] Introduce FFT and Hilbert transform pipeline
 - [ ] Begin filter design (Butterworth + Notch)
+- [ ] Add server-side plotting (matplotlib-like) for debugging and reports
+- [ ] Build real-time dashboard with D3.js + uWebSockets for live visualization
 - [ ] Benchmark native C++ vs pure JS performance
 - [ ] Expand unit tests for new stages and Redis states

@@ -249,8 +249,9 @@ export type TapCallback = (samples: Float32Array, stageName: string) => void;
 
 /**
  * Log levels for pipeline callbacks
+ * Extended levels: trace (most verbose) -> debug -> info -> warn -> error -> fatal (most critical)
  */
-export type LogLevel = "debug" | "info" | "warn" | "error";
+export type LogLevel = "trace" | "debug" | "info" | "warn" | "error" | "fatal";
 
 /**
  * Log topics following Kafka-style hierarchical structure
@@ -286,6 +287,7 @@ export interface LogContext {
 
 /**
  * A single log entry with timestamp and topic
+ * Supports distributed tracing with optional trace/span/correlation IDs
  */
 export interface LogEntry {
   topic?: LogTopic; // Optional: generated automatically by logging system
@@ -294,6 +296,11 @@ export interface LogEntry {
   context?: LogContext;
   timestamp: number;
   priority?: LogPriority; // Optional: defaults to 1 (lowest priority)
+
+  // Distributed tracing fields (for Datadog, AWS X-Ray, Jaeger, etc.)
+  traceId?: string; // Unique identifier for the entire trace
+  spanId?: string; // Unique identifier for this span within the trace
+  correlationId?: string; // Business-level correlation (e.g., request ID)
 }
 
 /**

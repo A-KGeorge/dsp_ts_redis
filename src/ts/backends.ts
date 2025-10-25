@@ -7,9 +7,306 @@
  * - Loki (centralized logging)
  * - CloudWatch (AWS)
  * - Datadog (observability platform)
+ *
+ * Features:
+ * - Pluggable formatters (JSON, text, custom)
+ * - Distributed tracing support (trace/span/correlation IDs)
+ * - Graceful shutdown with flush hooks
+ * - Extended log levels (trace -> fatal)
+ * - Internal performance metrics
  */
 
-import type { LogEntry } from "./types.js";
+import type { LogEntry, LogLevel } from "./types.js";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+/**
+ * Formatter interface for encoding log entries
+ */
+export interface Formatter {
+  format(log: LogEntry): any;
+}
+
+/**
+ * JSON formatter (default)
+ */
+export class JSONFormatter implements Formatter {
+  format(log: LogEntry): any {
+    return log;
+  }
+}
+
+/**
+ * Text formatter for human-readable output
+ */
+export class TextFormatter implements Formatter {
+  format(log: LogEntry): string {
+    const timestamp = new Date(log.timestamp).toISOString();
+    const level = log.level.toUpperCase().padEnd(5);
+    const topic = log.topic || "default";
+    const traceInfo = log.traceId ? ` [trace:${log.traceId.slice(0, 8)}]` : "";
+
+    let output = `[${timestamp}] ${level} [${topic}]${traceInfo} ${log.message}`;
+
+    if (log.context && Object.keys(log.context).length > 0) {
+      output += `\n  Context: ${JSON.stringify(log.context)}`;
+    }
+
+    return output;
+  }
+}
+
+/**
+ * Severity mapping for different observability systems
+ */
+export interface SeverityMapping {
+  trace?: string;
+  debug?: string;
+  info?: string;
+  warn?: string;
+  error?: string;
+  fatal?: string;
+}
+
+/**
+ * Default severity mappings for common systems
+ */
+export const SEVERITY_MAPPINGS = {
+  pagerduty: {
+    trace: "info",
+    debug: "info",
+    info: "info",
+    warn: "warning",
+    error: "error",
+    fatal: "critical",
+  },
+  datadog: {
+    trace: "debug",
+    debug: "debug",
+    info: "info",
+    warn: "warn",
+    error: "error",
+    fatal: "emergency",
+  },
+  syslog: {
+    trace: "7", // Debug
+    debug: "7", // Debug
+    info: "6", // Informational
+    warn: "4", // Warning
+    error: "3", // Error
+    fatal: "0", // Emergency
+  },
+};
+
+/**
+ * Async context for distributed tracing
+ */
+export const tracingContext = new AsyncLocalStorage<{
+  traceId?: string;
+  spanId?: string;
+  correlationId?: string;
+}>();
+
+/**
+ * Helper to get current tracing context
+ */
+export function getTracingContext() {
+  return tracingContext.getStore() || {};
+}
+
+/**
+ * Helper to run code with tracing context
+ */
+export function withTracingContext<T>(
+  context: { traceId?: string; spanId?: string; correlationId?: string },
+  fn: () => T
+): T {
+  return tracingContext.run(context, fn);
+}
+
+/**
+ * Performance metrics for internal instrumentation
+ */
+export interface LoggerMetrics {
+  logsProcessed: number;
+  logsFailed: number;
+  totalRetries: number;
+  flushCount: number;
+  averageFlushTimeMs: number;
+  queueSize: number;
+  handlerErrors: Map<string, number>;
+}
+
+/**
+ * Handler with optional flush capability
+ */
+export interface HandlerWithFlush {
+  (log: LogEntry): Promise<void> | void;
+  flush?: () => Promise<void>;
+  metrics?: () => LoggerMetrics;
+}
+
+/**
+ * Schema version for log payloads
+ */
+const SCHEMA_VERSION = "dsp-ts-redis/log/v1";
+
+/**
+ * Normalize timestamps for different observability systems
+ * @param timestamp Unix timestamp (milliseconds or seconds)
+ * @param format Target format: 'ms' | 's' | 'ns'
+ * @returns Normalized timestamp
+ */
+function normalizeTimestamp(
+  timestamp: number,
+  format: "ms" | "s" | "ns"
+): number {
+  // Assume input is milliseconds if > 1e12, otherwise seconds
+  const ms = timestamp > 1e12 ? timestamp : timestamp * 1000;
+
+  switch (format) {
+    case "s":
+      return Math.floor(ms / 1000);
+    case "ms":
+      return Math.floor(ms);
+    case "ns":
+      return Math.floor(ms * 1000000);
+  }
+}
+
+/**
+ * Sleep utility for retry backoff
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Retry an async operation with exponential backoff
+ * @param fn Function to retry
+ * @param maxAttempts Maximum number of attempts (default: 3)
+ * @param onRetry Optional callback on each retry
+ * @returns Result of successful attempt
+ */
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxAttempts: number = 3,
+  onRetry?: () => void
+): Promise<T> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      if (attempt < maxAttempts - 1) {
+        // Call retry callback if provided
+        if (onRetry) {
+          onRetry();
+        }
+
+        // Exponential backoff with jitter: 100ms, 400ms, 1600ms
+        const delay = Math.pow(2, attempt) * 100 + Math.random() * 50;
+        await sleep(delay);
+      }
+    }
+  }
+
+  throw lastError || new Error("Retry failed");
+}
+
+/**
+ * Generate W3C traceparent header from trace/span IDs
+ * Format: 00-{trace_id}-{span_id}-01
+ */
+export function generateTraceparent(
+  traceId?: string,
+  spanId?: string
+): string | undefined {
+  if (!traceId || !spanId) return undefined;
+  return `00-${traceId}-${spanId}-01`;
+}
+
+/**
+ * Shared HTTP transport utility
+ * @param url Request URL
+ * @param body Request body (will be JSON stringified)
+ * @param headers Optional headers
+ * @param method HTTP method (default: POST)
+ * @returns Response
+ */
+/**
+ * Shared HTTP transport utility
+ * @param url Request URL
+ * @param body Request body (will be JSON stringified)
+ * @param headers Optional headers
+ * @param method HTTP method (default: POST)
+ * @param log Optional log entry for trace context
+ * @returns Response
+ */
+async function postJSON(
+  url: string,
+  body: any,
+  headers?: Record<string, string>,
+  method: string = "POST",
+  log?: LogEntry
+): Promise<Response> {
+  const finalHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...headers,
+  };
+
+  // Add W3C traceparent header if trace context available
+  if (log?.traceId && log?.spanId) {
+    const traceparent = generateTraceparent(log.traceId, log.spanId);
+    if (traceparent) {
+      finalHeaders["traceparent"] = traceparent;
+    }
+  }
+
+  const response = await fetch(url, {
+    method,
+    headers: finalHeaders,
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status} - ${response.statusText}`);
+  }
+
+  return response;
+}
+
+/**
+ * Concurrency limiter using p-limit pattern
+ */
+class ConcurrencyLimiter {
+  private queue: Array<() => void> = [];
+  private active = 0;
+
+  constructor(private limit: number) {}
+
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    while (this.active >= this.limit) {
+      await new Promise<void>((resolve) => this.queue.push(resolve));
+    }
+
+    this.active++;
+    try {
+      return await fn();
+    } finally {
+      this.active--;
+      const next = this.queue.shift();
+      if (next) next();
+    }
+  }
+}
+
+/**
+ * Global concurrency limiter (max 5 concurrent network requests)
+ */
+const concurrencyLimiter = new ConcurrencyLimiter(5);
 
 /**
  * Backend handler configuration
@@ -33,6 +330,7 @@ export interface BackendConfig {
  */
 export function createPagerDutyHandler(config: BackendConfig) {
   const { endpoint, apiKey } = config;
+  const severityMap = SEVERITY_MAPPINGS.pagerduty;
 
   return async (log: LogEntry): Promise<void> => {
     if (!endpoint || !apiKey) {
@@ -40,35 +338,36 @@ export function createPagerDutyHandler(config: BackendConfig) {
       return;
     }
 
-    try {
-      const payload = {
-        routing_key: apiKey,
-        event_action: "trigger",
-        payload: {
-          summary: log.message,
-          severity: log.level === "error" ? "critical" : "warning",
-          source: log.topic || "dsp-pipeline",
-          timestamp: new Date(log.timestamp).toISOString(),
-          custom_details: log.context,
-        },
-      };
+    await concurrencyLimiter.run(async () => {
+      await retryWithBackoff(
+        async () => {
+          const payload = {
+            schema: SCHEMA_VERSION,
+            routing_key: apiKey,
+            event_action: "trigger",
+            payload: {
+              summary: log.message,
+              severity: severityMap[log.level] || "warning",
+              source: log.topic || "dsp-pipeline",
+              timestamp: new Date(
+                normalizeTimestamp(log.timestamp, "ms")
+              ).toISOString(),
+              custom_details: {
+                ...log.context,
+                traceId: log.traceId,
+                spanId: log.spanId,
+                correlationId: log.correlationId,
+              },
+            },
+          };
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...config.headers,
+          await postJSON(endpoint, payload, config.headers, "POST", log);
         },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        throw new Error(`PagerDuty API error: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error("PagerDuty handler error:", error);
-      throw error;
-    }
+        3,
+        // Retry callback (unused here, but could increment logger metrics)
+        undefined
+      );
+    });
   };
 }
 
@@ -85,33 +384,33 @@ export function createPrometheusHandler(config: BackendConfig) {
       return;
     }
 
-    try {
-      // Convert log to Prometheus metrics format
-      const metricName = log.topic?.replace(/\./g, "_") || "pipeline_metric";
-      const labels = Object.entries(log.context || {})
-        .map(([key, value]) => `${key}="${value}"`)
-        .join(",");
+    await concurrencyLimiter.run(async () => {
+      await retryWithBackoff(async () => {
+        // Convert log to Prometheus metrics format
+        const metricName = log.topic?.replace(/\./g, "_") || "pipeline_metric";
+        const labels = Object.entries(log.context || {})
+          .map(([key, value]) => `${key}="${value}"`)
+          .join(",");
 
-      const metric = `${metricName}{${labels}} ${log.context?.value || 1} ${
-        log.timestamp
-      }`;
+        const timestamp = normalizeTimestamp(log.timestamp, "ms");
+        const metric = `${metricName}{${labels},schema="${SCHEMA_VERSION}"} ${
+          log.context?.value || 1
+        } ${timestamp}`;
 
-      const response = await fetch(`${endpoint}/metrics/job/dsp_pipeline`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "text/plain",
-          ...config.headers,
-        },
-        body: metric,
+        const response = await fetch(`${endpoint}/metrics/job/dsp_pipeline`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain",
+            ...config.headers,
+          },
+          body: metric,
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} - ${response.statusText}`);
+        }
       });
-
-      if (!response.ok) {
-        throw new Error(`Prometheus API error: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error("Prometheus handler error:", error);
-      throw error;
-    }
+    });
   };
 }
 
@@ -119,7 +418,7 @@ export function createPrometheusHandler(config: BackendConfig) {
  * Grafana Loki log handler
  * Sends logs to Loki for centralized logging
  */
-export function createLokiHandler(config: BackendConfig) {
+export function createLokiHandler(config: BackendConfig): HandlerWithFlush {
   const { endpoint, apiKey } = config;
   const buffer: LogEntry[] = [];
   let flushTimer: NodeJS.Timeout | null = null;
@@ -130,43 +429,40 @@ export function createLokiHandler(config: BackendConfig) {
     const logs = buffer.splice(0, buffer.length);
 
     try {
-      const streams = logs.map((log) => ({
-        stream: {
-          job: "dsp-pipeline",
-          level: log.level,
-          topic: log.topic || "unknown",
-          ...log.context,
-        },
-        values: [[String(log.timestamp * 1000000), log.message]],
-      }));
+      await retryWithBackoff(async () => {
+        const streams = logs.map((log) => ({
+          stream: {
+            job: "dsp-pipeline",
+            level: log.level,
+            topic: log.topic || "unknown",
+            schema: SCHEMA_VERSION,
+            ...log.context,
+          },
+          values: [
+            [String(normalizeTimestamp(log.timestamp, "ns")), log.message],
+          ],
+        }));
 
-      const payload = { streams };
+        const payload = { streams };
 
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...config.headers,
-      };
+        const headers: Record<string, string> = {
+          ...config.headers,
+        };
 
-      if (apiKey) {
-        headers["Authorization"] = `Bearer ${apiKey}`;
-      }
+        if (apiKey) {
+          headers["Authorization"] = `Bearer ${apiKey}`;
+        }
 
-      const response = await fetch(`${endpoint}/loki/api/v1/push`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(payload),
+        await postJSON(`${endpoint}/loki/api/v1/push`, payload, headers);
       });
-
-      if (!response.ok) {
-        throw new Error(`Loki API error: ${response.statusText}`);
-      }
     } catch (error) {
-      console.error("Loki handler error:", error);
-      throw error;
+      // Requeue failed logs for next flush attempt
+      buffer.unshift(...logs);
+      console.error("Loki handler error (logs requeued):", error);
     }
   };
 
-  return async (log: LogEntry): Promise<void> => {
+  const handler: HandlerWithFlush = async (log: LogEntry): Promise<void> => {
     if (!endpoint) {
       console.warn("Loki handler: endpoint not configured");
       return;
@@ -192,6 +488,11 @@ export function createLokiHandler(config: BackendConfig) {
       }, config.flushInterval || 5000);
     }
   };
+
+  // Attach flush method for graceful shutdown
+  handler.flush = flush;
+
+  return handler;
 }
 
 /**
@@ -207,40 +508,32 @@ export function createCloudWatchHandler(config: BackendConfig) {
       return;
     }
 
-    try {
-      const payload = {
-        logGroupName: "/dsp-pipeline/logs",
-        logStreamName: log.topic || "default",
-        logEvents: [
-          {
-            message: JSON.stringify({
-              level: log.level,
-              message: log.message,
-              ...log.context,
-            }),
-            timestamp: log.timestamp,
-          },
-        ],
-      };
+    await concurrencyLimiter.run(async () => {
+      await retryWithBackoff(async () => {
+        const payload = {
+          schema: SCHEMA_VERSION,
+          logGroupName: "/dsp-pipeline/logs",
+          logStreamName: log.topic || "default",
+          logEvents: [
+            {
+              message: JSON.stringify({
+                level: log.level,
+                message: log.message,
+                ...log.context,
+              }),
+              timestamp: normalizeTimestamp(log.timestamp, "ms"),
+            },
+          ],
+        };
 
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
+        await postJSON(endpoint, payload, {
           "Content-Type": "application/x-amz-json-1.1",
           "X-Amz-Target": "Logs_20140328.PutLogEvents",
           Authorization: apiKey || "",
           ...config.headers,
-        },
-        body: JSON.stringify(payload),
+        });
       });
-
-      if (!response.ok) {
-        throw new Error(`CloudWatch API error: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error("CloudWatch handler error:", error);
-      throw error;
-    }
+    });
   };
 }
 
@@ -251,6 +544,7 @@ export function createCloudWatchHandler(config: BackendConfig) {
 export function createDatadogHandler(config: BackendConfig) {
   const { endpoint = "https://http-intake.logs.datadoghq.com", apiKey } =
     config;
+  const severityMap = SEVERITY_MAPPINGS.datadog;
 
   return async (log: LogEntry): Promise<void> => {
     if (!apiKey) {
@@ -258,33 +552,31 @@ export function createDatadogHandler(config: BackendConfig) {
       return;
     }
 
-    try {
-      const payload = {
-        ddsource: "dsp-pipeline",
-        ddtags: `topic:${log.topic},level:${log.level}`,
-        hostname: "localhost",
-        message: log.message,
-        service: "dsp-pipeline",
-        timestamp: log.timestamp,
-        ...log.context,
-      };
+    await concurrencyLimiter.run(async () => {
+      await retryWithBackoff(async () => {
+        const payload = {
+          schema: SCHEMA_VERSION,
+          ddsource: "dsp-pipeline",
+          ddtags: `topic:${log.topic},level:${log.level}`,
+          hostname: "localhost",
+          message: log.message,
+          service: "dsp-pipeline",
+          status: severityMap[log.level] || "info",
+          timestamp: normalizeTimestamp(log.timestamp, "ms"),
+          dd: {
+            trace_id: log.traceId,
+            span_id: log.spanId,
+          },
+          ...log.context,
+        };
 
-      const response = await fetch(`${endpoint}/v1/input/${apiKey}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...config.headers,
-        },
-        body: JSON.stringify(payload),
+        await postJSON(
+          `${endpoint}/v1/input/${apiKey}`,
+          payload,
+          config.headers
+        );
       });
-
-      if (!response.ok) {
-        throw new Error(`Datadog API error: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error("Datadog handler error:", error);
-      throw error;
-    }
+    });
   };
 }
 
@@ -294,21 +586,24 @@ export function createDatadogHandler(config: BackendConfig) {
  */
 export function createConsoleHandler(config: Partial<BackendConfig> = {}) {
   const colors = {
+    trace: "\x1b[90m", // Gray
     debug: "\x1b[36m", // Cyan
     info: "\x1b[32m", // Green
     warn: "\x1b[33m", // Yellow
     error: "\x1b[31m", // Red
+    fatal: "\x1b[35;1m", // Bright Magenta
     reset: "\x1b[0m",
   };
 
   return (log: LogEntry): void => {
     const color = colors[log.level] || colors.reset;
     const timestamp = new Date(log.timestamp).toISOString();
+    const traceInfo = log.traceId ? ` [trace:${log.traceId.slice(0, 8)}]` : "";
 
     console.log(
       `${color}[${timestamp}] [${log.level.toUpperCase()}] [${
         log.topic || "unknown"
-      }]${colors.reset} ${log.message}`
+      }]${traceInfo}${colors.reset} ${log.message}`
     );
 
     if (log.context && Object.keys(log.context).length > 0) {
@@ -335,4 +630,366 @@ export function createMockHandler(onLog?: (log: LogEntry) => void) {
     getLogs: () => [...logs],
     clear: () => logs.splice(0, logs.length),
   };
+}
+
+/**
+ * Sampling configuration for high-volume logs
+ */
+export interface SamplingConfig {
+  trace?: number; // Sampling rate 0-1 (e.g., 0.01 = 1%)
+  debug?: number;
+  info?: number;
+  warn?: number;
+  error?: number;
+  fatal?: number;
+}
+
+/**
+ * Logger options
+ */
+export interface LoggerOptions {
+  fallbackHandler?: (log: LogEntry) => void;
+  severityMapping?: SeverityMapping;
+  enableMetrics?: boolean;
+  formatter?: Formatter;
+  sampling?: SamplingConfig;
+  minLevel?: LogLevel; // Minimum level to log (dynamic control)
+  autoShutdown?: boolean; // Auto-register SIGTERM/SIGINT handlers
+}
+
+/**
+ * Unified Logger class - orchestrates multiple backend handlers
+ *
+ * Features:
+ * - Multiple handler dispatch with Promise.all
+ * - Error isolation (one handler failure doesn't affect others)
+ * - Structured error logging to fallback console handler
+ * - Extended log levels (trace -> fatal)
+ * - Distributed tracing support (auto-inject trace/span IDs)
+ * - Graceful shutdown with flushAll()
+ * - Internal performance metrics
+ * - Custom severity mappings
+ *
+ * @example
+ * ```ts
+ * const logger = new Logger([
+ *   createConsoleHandler(),
+ *   createLokiHandler({ endpoint: "...", apiKey: "..." }),
+ * ], {
+ *   severityMapping: SEVERITY_MAPPINGS.datadog,
+ *   enableMetrics: true,
+ * });
+ *
+ * await logger.info("Pipeline initialized");
+ * await logger.error("Connection failed", "redis.connection", { host: "localhost" });
+ *
+ * // Graceful shutdown
+ * process.on("SIGTERM", async () => {
+ *   await logger.flushAll();
+ *   process.exit(0);
+ * });
+ * ```
+ */
+export class Logger {
+  private fallbackHandler: (log: LogEntry) => void;
+  private severityMapping?: SeverityMapping;
+  private enableMetrics: boolean;
+  private formatter: Formatter;
+  private sampling?: SamplingConfig;
+  private minLevel: LogLevel;
+  private readonly levelOrder: Record<LogLevel, number> = {
+    trace: 0,
+    debug: 1,
+    info: 2,
+    warn: 3,
+    error: 4,
+    fatal: 5,
+  };
+
+  // Internal metrics
+  private metrics: LoggerMetrics = {
+    logsProcessed: 0,
+    logsFailed: 0,
+    totalRetries: 0,
+    flushCount: 0,
+    averageFlushTimeMs: 0,
+    queueSize: 0,
+    handlerErrors: new Map(),
+  };
+
+  constructor(
+    private handlers: Array<HandlerWithFlush>,
+    options?: LoggerOptions
+  ) {
+    this.fallbackHandler = options?.fallbackHandler || createConsoleHandler();
+    this.severityMapping = options?.severityMapping;
+    this.enableMetrics = options?.enableMetrics ?? false;
+    this.formatter = options?.formatter || new JSONFormatter();
+    this.sampling = options?.sampling;
+    this.minLevel = options?.minLevel || "trace";
+
+    // Auto-register shutdown handlers if requested
+    if (options?.autoShutdown) {
+      ["SIGINT", "SIGTERM"].forEach((sig) => {
+        process.on(sig, async () => {
+          await this.flushAll();
+          process.exit(0);
+        });
+      });
+    }
+  }
+
+  /**
+   * Set minimum log level dynamically
+   */
+  setMinLevel(level: LogLevel): void {
+    this.minLevel = level;
+  }
+
+  /**
+   * Get current minimum log level
+   */
+  getMinLevel(): LogLevel {
+    return this.minLevel;
+  }
+
+  /**
+   * Check if a log should be sampled (returns true to log, false to skip)
+   */
+  private shouldSample(level: LogLevel): boolean {
+    if (!this.sampling) return true;
+
+    const rate = this.sampling[level];
+    if (rate === undefined) return true;
+
+    return Math.random() < rate;
+  }
+
+  /**
+   * Check if a log level meets the minimum threshold
+   */
+  private meetsMinLevel(level: LogLevel): boolean {
+    return this.levelOrder[level] >= this.levelOrder[this.minLevel];
+  }
+
+  /**
+   * Increment retry counter (called by handlers)
+   */
+  incrementRetries(): void {
+    if (this.enableMetrics) {
+      this.metrics.totalRetries++;
+    }
+  }
+
+  /**
+   * Log a message at the specified level
+   */
+  async log(
+    level: LogLevel,
+    message: string,
+    topic?: string,
+    context?: any
+  ): Promise<void> {
+    // Check minimum level threshold
+    if (!this.meetsMinLevel(level)) {
+      return;
+    }
+
+    // Apply sampling
+    if (!this.shouldSample(level)) {
+      return;
+    }
+
+    // Auto-inject tracing context if available
+    const tracingCtx = getTracingContext();
+
+    const entry: LogEntry = {
+      level,
+      message,
+      topic: topic || "default",
+      context,
+      timestamp: Date.now(),
+      traceId: tracingCtx.traceId,
+      spanId: tracingCtx.spanId,
+      correlationId: tracingCtx.correlationId,
+    };
+
+    if (this.enableMetrics) {
+      this.metrics.logsProcessed++;
+    }
+
+    // Apply formatter
+    const formattedEntry = this.formatter.format(entry);
+
+    // Dispatch to all handlers in parallel, isolating errors
+    await Promise.all(
+      this.handlers.map(async (handler) => {
+        try {
+          await handler(formattedEntry);
+        } catch (error) {
+          if (this.enableMetrics) {
+            this.metrics.logsFailed++;
+            const handlerName = handler.name || "anonymous";
+            this.metrics.handlerErrors.set(
+              handlerName,
+              (this.metrics.handlerErrors.get(handlerName) || 0) + 1
+            );
+          }
+
+          // Emit handler errors as structured LogEntry to fallback
+          const errorEntry: LogEntry = {
+            level: "error",
+            message: `Handler error: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+            topic: "logger.handler.error",
+            context: {
+              originalLog: entry,
+              error:
+                error instanceof Error
+                  ? {
+                      name: error.name,
+                      message: error.message,
+                      stack: error.stack,
+                    }
+                  : String(error),
+            },
+            timestamp: Date.now(),
+          };
+
+          try {
+            this.fallbackHandler(errorEntry);
+          } catch (fallbackError) {
+            console.error("Fallback handler failed:", fallbackError);
+          }
+        }
+      })
+    );
+  }
+
+  /**
+   * Log trace message (most verbose)
+   */
+  async trace(message: string, topic?: string, context?: any): Promise<void> {
+    await this.log("trace", message, topic, context);
+  }
+
+  /**
+   * Log debug message
+   */
+  async debug(message: string, topic?: string, context?: any): Promise<void> {
+    await this.log("debug", message, topic, context);
+  }
+
+  /**
+   * Log info message
+   */
+  async info(message: string, topic?: string, context?: any): Promise<void> {
+    await this.log("info", message, topic, context);
+  }
+
+  /**
+   * Log warning message
+   */
+  async warn(message: string, topic?: string, context?: any): Promise<void> {
+    await this.log("warn", message, topic, context);
+  }
+
+  /**
+   * Log error message
+   */
+  async error(message: string, topic?: string, context?: any): Promise<void> {
+    await this.log("error", message, topic, context);
+  }
+
+  /**
+   * Log fatal message (most critical)
+   */
+  async fatal(message: string, topic?: string, context?: any): Promise<void> {
+    await this.log("fatal", message, topic, context);
+  }
+
+  /**
+   * Flush all handlers (for graceful shutdown)
+   */
+  async flushAll(): Promise<void> {
+    const startTime = Date.now();
+
+    await Promise.all(
+      this.handlers.map(async (handler) => {
+        if (handler.flush) {
+          try {
+            await handler.flush();
+          } catch (error) {
+            console.error("Handler flush error:", error);
+          }
+        }
+      })
+    );
+
+    if (this.enableMetrics) {
+      this.metrics.flushCount++;
+      const flushTime = Date.now() - startTime;
+      this.metrics.averageFlushTimeMs =
+        (this.metrics.averageFlushTimeMs * (this.metrics.flushCount - 1) +
+          flushTime) /
+        this.metrics.flushCount;
+    }
+  }
+
+  /**
+   * Get internal performance metrics
+   */
+  getMetrics(): LoggerMetrics {
+    return { ...this.metrics };
+  }
+
+  /**
+   * Reset internal metrics
+   */
+  resetMetrics(): void {
+    this.metrics = {
+      logsProcessed: 0,
+      logsFailed: 0,
+      totalRetries: 0,
+      flushCount: 0,
+      averageFlushTimeMs: 0,
+      queueSize: 0,
+      handlerErrors: new Map(),
+    };
+  }
+
+  /**
+   * Get severity mapping for current logger
+   */
+  getSeverityMapping(): SeverityMapping | undefined {
+    return this.severityMapping;
+  }
+
+  /**
+   * Create a child logger with a default topic prefix
+   */
+  child(topicPrefix: string): Logger {
+    // Create a new logger that shares handlers but prefixes topics
+    const childLogger = new Logger(this.handlers, {
+      fallbackHandler: this.fallbackHandler,
+      severityMapping: this.severityMapping,
+      enableMetrics: false, // Don't double-count metrics
+      formatter: this.formatter,
+      sampling: this.sampling,
+      minLevel: this.minLevel,
+      autoShutdown: false, // Don't re-register shutdown handlers
+    });
+
+    // Override the log method to prefix topics
+    const originalLog = childLogger.log.bind(childLogger);
+    childLogger.log = async (level, message, topic, context) => {
+      const prefixedTopic = topic
+        ? `${topicPrefix}.${topic}`
+        : `${topicPrefix}.default`;
+      return originalLog(level, message, prefixedTopic, context);
+    };
+
+    return childLogger;
+  }
 }

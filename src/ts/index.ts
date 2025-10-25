@@ -1,10 +1,10 @@
 // Export the main API
-export { createDspPipeline, DspProcessor } from "./bindings.js";
+export { createDspPipeline, DspProcessor } from "./bindings";
 export {
   TopicRouter,
   TopicRouterBuilder,
   createTopicRouter,
-} from "./TopicRouter.js";
+} from "./TopicRouter";
 export {
   createPagerDutyHandler,
   createPrometheusHandler,
@@ -13,13 +13,28 @@ export {
   createDatadogHandler,
   createConsoleHandler,
   createMockHandler,
-} from "./backends.js";
+  Logger,
+  JSONFormatter,
+  TextFormatter,
+  SEVERITY_MAPPINGS,
+  tracingContext,
+  getTracingContext,
+  withTracingContext,
+  generateTraceparent,
+  type Formatter,
+  type SeverityMapping,
+  type HandlerWithFlush,
+  type LoggerMetrics,
+  type SamplingConfig,
+  type LoggerOptions,
+} from "./backends";
 export {
   DriftDetector,
   detectGaps,
   validateMonotonicity,
   estimateSampleRate,
-} from "./DriftDetector.js";
+} from "./DriftDetector";
+export { egg } from "./easter-egg";
 export type {
   DriftStatistics,
   DriftDetectorOptions,
@@ -27,7 +42,7 @@ export type {
   GapDetection,
   MonotonicityViolation,
   SampleRateEstimate,
-} from "./DriftDetector.js";
+} from "./DriftDetector";
 export type {
   ProcessOptions,
   MovingAverageParams,
@@ -49,12 +64,12 @@ export type {
   TapCallback,
   PipelineStateSummary,
   StageSummary,
-} from "./types.js";
+} from "./types";
 export type {
   RouteHandler,
   Route,
   RouteOptions,
   RouteMetrics,
   PatternMatcher,
-} from "./TopicRouter.js";
-export type { BackendConfig } from "./backends.js";
+} from "./TopicRouter";
+export type { BackendConfig } from "./backends";
