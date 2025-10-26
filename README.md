@@ -1574,7 +1574,7 @@ await worker2.process(chunk2, { sampleRate: 2000, channels: 1 });
 ### Building from Source
 
 ```bash
-git clone https://github.com/yourusername/dsp-ts-redis.git
+git clone https://github.com/A-KGeorge/dsp_ts_redis.git
 cd dsp-ts-redis
 npm install
 npm run build          # Compile C++ bindings with cmake-js
@@ -1692,20 +1692,18 @@ Contributions are welcome! This project is in active development.
 
 ### Priority Areas
 
-1. **Additional Filters**: IIR, FIR, Butterworth, Chebyshev, notch filters
-2. **Transform Domain**: FFT, STFT, wavelet transforms
-3. **Performance**: SIMD optimizations, benchmarking
-4. **Testing**: Unit tests, validation against SciPy/NumPy
-5. **Documentation**: More examples, API docs, tutorials
+1. **Transform Domain**: FFT, STFT, wavelet transforms
+2. **Performance**: SIMD optimizations, benchmarking
+3. **Testing**: Unit tests, validation against SciPy/NumPy
+4. **Documentation**: More examples, API docs, tutorials
 
 ### Development Workflow
 
 ```bash
-git clone https://github.com/yourusername/dsp-ts-redis.git
+git clone https://github.com/A-KGeorge/dsp_ts_redis.git
 cd dsp-ts-redis
 npm install
 npm run build      # Compile C++ with cmake-js
-npm run dev            # Watch mode for development
 npm run test           # Run tests
 ```
 
