@@ -309,4 +309,44 @@ namespace dsp::core
         T getEpsilon() const { return m_epsilon; }
     };
 
+    /**
+     * @brief Policy for FIR filter convolution.
+     *
+     * Performs FIR filtering using dot product with filter coefficients.
+     * The buffer stores recent input samples, and coefficients are the filter taps.
+     * Note: SIMD optimization is handled in the FirFilter implementation.
+     */
+    template <typename T>
+    struct FirConvolutionPolicy
+    {
+        std::vector<T> m_coefficients;
+
+        explicit FirConvolutionPolicy(const std::vector<T> &coefficients)
+            : m_coefficients(coefficients) {}
+
+        void onAdd(T val) {}    // No incremental state to update
+        void onRemove(T val) {} // No incremental state to update
+        void clear() {}         // No state to clear
+
+        // Compute convolution (dot product) with the buffer
+        // Note: This is a simple scalar version; SIMD is applied in FirFilter
+        T getResult(const std::vector<T> &buffer) const
+        {
+            if (buffer.empty() || m_coefficients.empty())
+                return T(0);
+
+            T result = T(0);
+            size_t len = std::min(buffer.size(), m_coefficients.size());
+            for (size_t i = 0; i < len; ++i)
+            {
+                result += buffer[i] * m_coefficients[i];
+            }
+            return result;
+        }
+
+        // For state serialization
+        const std::vector<T> &getCoefficients() const { return m_coefficients; }
+        void setCoefficients(const std::vector<T> &coeffs) { m_coefficients = coeffs; }
+    };
+
 } // namespace dsp::core

@@ -34,6 +34,14 @@ export {
   validateMonotonicity,
   estimateSampleRate,
 } from "./DriftDetector";
+export {
+  FftProcessor,
+  MovingFftProcessor,
+  FftUtils,
+  type ComplexArray,
+  type WindowType,
+  type FftMode,
+} from "./fft";
 export { egg } from "./easter-egg";
 export type {
   DriftStatistics,

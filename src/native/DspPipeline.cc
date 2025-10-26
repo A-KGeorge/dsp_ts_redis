@@ -9,6 +9,13 @@
 #include "adapters/SscStage.h"               // Slope Sign Change method
 #include "adapters/WampStage.h"              // Willison Amplitude method
 
+namespace dsp
+{
+    // Forward declarations for bindings
+    extern void InitFftBindings(Napi::Env env, Napi::Object exports);
+    extern void InitFilterBindings(Napi::Env env, Napi::Object exports);
+}
+
 #include <iostream>
 #include <ctime>
 
@@ -643,11 +650,25 @@ namespace dsp
 
 } // namespace dsp
 
+// Forward declare FFT bindings init
+namespace dsp
+{
+    void InitFftBindings(Napi::Env env, Napi::Object exports);
+}
+
 // This function is called by Node.js when the addon is loaded
 Napi::Object InitAll(Napi::Env env, Napi::Object exports)
 {
-    // It initializes and exports your *one* DspPipeline class
-    return dsp::DspPipeline::Init(env, exports);
+    // Initialize DspPipeline class
+    dsp::DspPipeline::Init(env, exports);
+
+    // Initialize FFT/DFT bindings
+    dsp::InitFftBindings(env, exports);
+
+    // Initialize FIR/IIR filter bindings
+    dsp::InitFilterBindings(env, exports);
+
+    return exports;
 }
 
 // This line registers the module

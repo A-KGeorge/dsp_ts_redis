@@ -1,0 +1,441 @@
+/**
+ * FFT/DFT Engine Implementation with SIMD Optimizations
+ */
+
+#define _USE_MATH_DEFINES
+#include <cmath>
+#include "FftEngine.h"
+#include "../utils/SimdOps.h"
+#include <algorithm>
+#include <stdexcept>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+namespace dsp
+{
+    namespace core
+    {
+
+        template <typename T>
+        FftEngine<T>::FftEngine(size_t size)
+            : m_size(size), m_isPowerOfTwo(checkPowerOfTwo(size))
+        {
+            if (size == 0)
+            {
+                throw std::invalid_argument("FFT size must be > 0");
+            }
+
+            // Initialize twiddle factors and bit-reversal for FFT
+            if (m_isPowerOfTwo)
+            {
+                initTwiddleFactors();
+                initBitReversal();
+            }
+
+            // Allocate working buffer
+            m_workBuffer.resize(m_size);
+        }
+
+        // ========== Complex Transforms ==========
+
+        template <typename T>
+        void FftEngine<T>::fft(const Complex *input, Complex *output)
+        {
+            if (!m_isPowerOfTwo)
+            {
+                throw std::runtime_error("FFT requires power-of-2 size. Use DFT for arbitrary sizes.");
+            }
+
+            // Copy input to output for in-place operation
+            std::copy(input, input + m_size, output);
+
+            // Perform Cooley-Tukey FFT
+            cooleyTukeyFFT(output, false);
+        }
+
+        template <typename T>
+        void FftEngine<T>::ifft(const Complex *input, Complex *output)
+        {
+            if (!m_isPowerOfTwo)
+            {
+                throw std::runtime_error("IFFT requires power-of-2 size. Use IDFT for arbitrary sizes.");
+            }
+
+            // Copy input to output
+            std::copy(input, input + m_size, output);
+
+            // Perform inverse FFT
+            cooleyTukeyFFT(output, true);
+
+            // Scale by 1/N
+            T scale = T(1) / static_cast<T>(m_size);
+            for (size_t i = 0; i < m_size; ++i)
+            {
+                output[i] *= scale;
+            }
+        }
+
+        template <typename T>
+        void FftEngine<T>::dft(const Complex *input, Complex *output)
+        {
+            // Direct DFT computation: X[k] = Σ x[n] * e^(-j2πkn/N)
+            const T two_pi = static_cast<T>(2.0 * M_PI);
+
+            for (size_t k = 0; k < m_size; ++k)
+            {
+                Complex sum(0, 0);
+
+                for (size_t n = 0; n < m_size; ++n)
+                {
+                    T angle = -two_pi * static_cast<T>(k * n) / static_cast<T>(m_size);
+                    Complex twiddle(std::cos(angle), std::sin(angle));
+                    sum += input[n] * twiddle;
+                }
+
+                output[k] = sum;
+            }
+        }
+
+        template <typename T>
+        void FftEngine<T>::idft(const Complex *input, Complex *output)
+        {
+            // Inverse DFT: x[n] = (1/N) * Σ X[k] * e^(j2πkn/N)
+            const T two_pi = static_cast<T>(2.0 * M_PI);
+            const T scale = T(1) / static_cast<T>(m_size);
+
+            for (size_t n = 0; n < m_size; ++n)
+            {
+                Complex sum(0, 0);
+
+                for (size_t k = 0; k < m_size; ++k)
+                {
+                    T angle = two_pi * static_cast<T>(k * n) / static_cast<T>(m_size);
+                    Complex twiddle(std::cos(angle), std::sin(angle));
+                    sum += input[k] * twiddle;
+                }
+
+                output[n] = sum * scale;
+            }
+        }
+
+        // ========== Real-Input Transforms ==========
+
+        template <typename T>
+        void FftEngine<T>::rfft(const T *input, Complex *output)
+        {
+            if (!m_isPowerOfTwo)
+            {
+                throw std::runtime_error("RFFT requires power-of-2 size. Use RDFT for arbitrary sizes.");
+            }
+
+            // Pack real input into complex array (imaginary part = 0)
+            for (size_t i = 0; i < m_size; ++i)
+            {
+                m_workBuffer[i] = Complex(input[i], 0);
+            }
+
+            // Perform standard FFT
+            cooleyTukeyFFT(m_workBuffer.data(), false);
+
+            // Copy half spectrum (exploit Hermitian symmetry)
+            size_t halfSize = getHalfSize();
+            for (size_t i = 0; i < halfSize; ++i)
+            {
+                output[i] = m_workBuffer[i];
+            }
+        }
+
+        template <typename T>
+        void FftEngine<T>::irfft(const Complex *input, T *output)
+        {
+            if (!m_isPowerOfTwo)
+            {
+                throw std::runtime_error("IRFFT requires power-of-2 size. Use IRDFT for arbitrary sizes.");
+            }
+
+            size_t halfSize = getHalfSize();
+
+            // Reconstruct full spectrum using Hermitian symmetry: X[N-k] = X*[k]
+            m_workBuffer[0] = input[0]; // DC component
+
+            for (size_t i = 1; i < halfSize - 1; ++i)
+            {
+                m_workBuffer[i] = input[i];
+                m_workBuffer[m_size - i] = std::conj(input[i]);
+            }
+
+            // Nyquist frequency (if N is even)
+            if (m_size % 2 == 0)
+            {
+                m_workBuffer[m_size / 2] = input[halfSize - 1];
+            }
+
+            // Perform inverse FFT
+            cooleyTukeyFFT(m_workBuffer.data(), true);
+
+            // Extract real part and scale by 1/N
+            T scale = T(1) / static_cast<T>(m_size);
+            for (size_t i = 0; i < m_size; ++i)
+            {
+                output[i] = m_workBuffer[i].real() * scale;
+            }
+        }
+
+        template <typename T>
+        void FftEngine<T>::rdft(const T *input, Complex *output)
+        {
+            // Direct RDFT: compute only half spectrum
+            const T two_pi = static_cast<T>(2.0 * M_PI);
+            size_t halfSize = getHalfSize();
+
+            for (size_t k = 0; k < halfSize; ++k)
+            {
+                Complex sum(0, 0);
+
+                for (size_t n = 0; n < m_size; ++n)
+                {
+                    T angle = -two_pi * static_cast<T>(k * n) / static_cast<T>(m_size);
+                    Complex twiddle(std::cos(angle), std::sin(angle));
+                    sum += Complex(input[n], 0) * twiddle;
+                }
+
+                output[k] = sum;
+            }
+        }
+
+        template <typename T>
+        void FftEngine<T>::irdft(const Complex *input, T *output)
+        {
+            // Inverse RDFT: reconstruct real signal from half spectrum
+            const T two_pi = static_cast<T>(2.0 * M_PI);
+            const T scale = T(1) / static_cast<T>(m_size);
+            size_t halfSize = getHalfSize();
+
+            for (size_t n = 0; n < m_size; ++n)
+            {
+                Complex sum(0, 0);
+
+                // DC component
+                sum += input[0];
+
+                // Positive frequencies
+                for (size_t k = 1; k < halfSize - 1; ++k)
+                {
+                    T angle = two_pi * static_cast<T>(k * n) / static_cast<T>(m_size);
+                    Complex twiddle(std::cos(angle), std::sin(angle));
+
+                    // Add X[k] * e^(j2πkn/N) + X*[k] * e^(-j2πkn/N)
+                    sum += input[k] * twiddle;
+                    sum += std::conj(input[k]) * std::conj(twiddle);
+                }
+
+                // Nyquist frequency (if N is even)
+                if (m_size % 2 == 0 && halfSize > 1)
+                {
+                    T angle = two_pi * static_cast<T>((halfSize - 1) * n) / static_cast<T>(m_size);
+                    Complex twiddle(std::cos(angle), std::sin(angle));
+                    sum += input[halfSize - 1] * twiddle;
+                }
+
+                output[n] = sum.real() * scale;
+            }
+        }
+
+        // ========== Utility Methods ==========
+
+        template <typename T>
+        void FftEngine<T>::getMagnitude(const Complex *spectrum, T *magnitudes, size_t length)
+        {
+            // MEDIUM WIN: SIMD-optimized magnitude calculation
+            if constexpr (std::is_same_v<T, float>)
+            {
+                // Extract real and imaginary parts into separate arrays for SIMD
+                std::vector<float> real(length);
+                std::vector<float> imag(length);
+
+                for (size_t i = 0; i < length; ++i)
+                {
+                    real[i] = spectrum[i].real();
+                    imag[i] = spectrum[i].imag();
+                }
+
+                dsp::simd::complex_magnitude(real.data(), imag.data(), magnitudes, length);
+            }
+            else
+            {
+                // Fallback for double precision
+                for (size_t i = 0; i < length; ++i)
+                {
+                    magnitudes[i] = std::abs(spectrum[i]);
+                }
+            }
+        }
+
+        template <typename T>
+        void FftEngine<T>::getPhase(const Complex *spectrum, T *phases, size_t length)
+        {
+            // Phase calculation (atan2 doesn't benefit much from SIMD)
+            for (size_t i = 0; i < length; ++i)
+            {
+                phases[i] = std::arg(spectrum[i]);
+            }
+        }
+
+        template <typename T>
+        void FftEngine<T>::getPower(const Complex *spectrum, T *power, size_t length)
+        {
+            // MEDIUM WIN: SIMD-optimized power calculation
+            if constexpr (std::is_same_v<T, float>)
+            {
+                // Extract real and imaginary parts into separate arrays for SIMD
+                std::vector<float> real(length);
+                std::vector<float> imag(length);
+
+                for (size_t i = 0; i < length; ++i)
+                {
+                    real[i] = spectrum[i].real();
+                    imag[i] = spectrum[i].imag();
+                }
+
+                dsp::simd::complex_power(real.data(), imag.data(), power, length);
+            }
+            else
+            {
+                // Fallback for double precision
+                for (size_t i = 0; i < length; ++i)
+                {
+                    T mag = std::abs(spectrum[i]);
+                    power[i] = mag * mag;
+                }
+            }
+        }
+
+        // ========== Private Methods ==========
+
+        template <typename T>
+        void FftEngine<T>::initTwiddleFactors()
+        {
+            m_twiddleFactors.resize(m_size / 2);
+
+            const T two_pi = static_cast<T>(2.0 * M_PI);
+
+            for (size_t k = 0; k < m_size / 2; ++k)
+            {
+                T angle = -two_pi * static_cast<T>(k) / static_cast<T>(m_size);
+                m_twiddleFactors[k] = Complex(std::cos(angle), std::sin(angle));
+            }
+        }
+
+        template <typename T>
+        void FftEngine<T>::initBitReversal()
+        {
+            m_bitReversalIndices.resize(m_size);
+
+            size_t bits = 0;
+            size_t temp = m_size;
+            while (temp > 1)
+            {
+                temp >>= 1;
+                ++bits;
+            }
+
+            for (size_t i = 0; i < m_size; ++i)
+            {
+                m_bitReversalIndices[i] = reverseBits(i, bits);
+            }
+        }
+
+        template <typename T>
+        void FftEngine<T>::bitReverse(Complex *data)
+        {
+            for (size_t i = 0; i < m_size; ++i)
+            {
+                size_t j = m_bitReversalIndices[i];
+                if (i < j)
+                {
+                    std::swap(data[i], data[j]);
+                }
+            }
+        }
+
+        template <typename T>
+        void FftEngine<T>::cooleyTukeyFFT(Complex *data, bool inverse)
+        {
+            // Bit-reversal permutation
+            bitReverse(data);
+
+            // Cooley-Tukey decimation-in-time
+            for (size_t len = 2; len <= m_size; len *= 2)
+            {
+                size_t halfLen = len / 2;
+                size_t step = m_size / len;
+
+                for (size_t i = 0; i < m_size; i += len)
+                {
+                    for (size_t j = 0; j < halfLen; ++j)
+                    {
+                        size_t twiddleIdx = j * step;
+                        Complex twiddle = m_twiddleFactors[twiddleIdx];
+
+                        if (inverse)
+                        {
+                            twiddle = std::conj(twiddle);
+                        }
+
+                        butterfly(data[i + j], data[i + j + halfLen], twiddle);
+                    }
+                }
+            }
+        }
+
+        template <typename T>
+        inline void FftEngine<T>::butterfly(Complex &a, Complex &b, const Complex &twiddle)
+        {
+            Complex temp = b * twiddle;
+            b = a - temp;
+            a = a + temp;
+        }
+
+        template <typename T>
+        bool FftEngine<T>::checkPowerOfTwo(size_t n)
+        {
+            return n > 0 && (n & (n - 1)) == 0;
+        }
+
+        template <typename T>
+        size_t FftEngine<T>::nextPowerOfTwo(size_t n)
+        {
+            if (n == 0)
+                return 1;
+
+            --n;
+            n |= n >> 1;
+            n |= n >> 2;
+            n |= n >> 4;
+            n |= n >> 8;
+            n |= n >> 16;
+            n |= n >> 32;
+
+            return n + 1;
+        }
+
+        template <typename T>
+        size_t FftEngine<T>::reverseBits(size_t x, size_t bits)
+        {
+            size_t result = 0;
+            for (size_t i = 0; i < bits; ++i)
+            {
+                result = (result << 1) | (x & 1);
+                x >>= 1;
+            }
+            return result;
+        }
+
+        // Explicit template instantiations
+        template class FftEngine<float>;
+        template class FftEngine<double>;
+
+    } // namespace core
+} // namespace dsp

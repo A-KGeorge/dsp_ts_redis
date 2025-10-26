@@ -1,0 +1,160 @@
+/**
+ * IIR (Infinite Impulse Response) Filter
+ *
+ * A recursive filter defined by:
+ *   y[n] = (b[0]*x[n] + b[1]*x[n-1] + ... + b[M]*x[n-M])
+ *        - (a[1]*y[n-1] + a[2]*y[n-2] + ... + a[N]*y[n-N])
+ *
+ * Standard form: a[0] = 1 (normalized)
+ *
+ * Features:
+ * - Feedback structure (can be unstable if poles outside unit circle)
+ * - Efficient (fewer coefficients than FIR for same frequency response)
+ * - Stateful (maintains input/output history) and stateless modes
+ * - Common filter designs: Butterworth, Chebyshev, Bessel
+ * - Biquad cascade structure for numerical stability
+ */
+
+#ifndef DSP_CORE_IIR_FILTER_H
+#define DSP_CORE_IIR_FILTER_H
+
+#include <vector>
+#include <cstddef>
+#include <memory>
+
+namespace dsp
+{
+    namespace core
+    {
+
+        template <typename T = float>
+        class IirFilter
+        {
+        public:
+            /**
+             * Constructor
+             * @param b_coeffs Feedforward coefficients (b[0], b[1], ..., b[M])
+             * @param a_coeffs Feedback coefficients (a[1], a[2], ..., a[N])
+             *                 Note: a[0] is assumed to be 1 (normalized form)
+             * @param stateful If true, maintains state between process calls
+             */
+            IirFilter(const std::vector<T> &b_coeffs, const std::vector<T> &a_coeffs, bool stateful = true);
+
+            /**
+             * Process single sample (stateful mode only)
+             * @param input Input sample
+             * @return Filtered output sample
+             */
+            T processSample(T input);
+
+            /**
+             * Process batch of samples
+             * @param input Input samples
+             * @param output Output buffer (must be same size as input)
+             * @param length Number of samples
+             * @param stateless If true, ignores internal state (batch processing)
+             */
+            void process(const T *input, T *output, size_t length, bool stateless = false);
+
+            /**
+             * Reset filter state (clear history)
+             */
+            void reset();
+
+            /**
+             * Get feedforward order (M)
+             */
+            size_t getFeedforwardOrder() const { return m_b_coeffs.size() - 1; }
+
+            /**
+             * Get feedback order (N)
+             */
+            size_t getFeedbackOrder() const { return m_a_coeffs.size(); }
+
+            /**
+             * Get feedforward coefficients
+             */
+            const std::vector<T> &getBCoefficients() const { return m_b_coeffs; }
+
+            /**
+             * Get feedback coefficients
+             */
+            const std::vector<T> &getACoefficients() const { return m_a_coeffs; }
+
+            /**
+             * Update coefficients (resets state)
+             */
+            void setCoefficients(const std::vector<T> &b_coeffs, const std::vector<T> &a_coeffs);
+
+            /**
+             * Check if filter is stateful
+             */
+            bool isStateful() const { return m_stateful; }
+
+            /**
+             * Check filter stability (all poles inside unit circle)
+             * Note: This is a basic check; full stability analysis requires pole computation
+             */
+            bool isStable() const;
+
+            // ========== Common IIR Filter Designs ==========
+
+            /**
+             * Create Butterworth low-pass filter (maximally flat passband)
+             * @param cutoffFreq Cutoff frequency (normalized: 0 to 0.5)
+             * @param order Filter order (1-8 recommended)
+             * @return IIR filter
+             */
+            static IirFilter<T> createButterworthLowPass(T cutoffFreq, int order);
+
+            /**
+             * Create Butterworth high-pass filter
+             * @param cutoffFreq Cutoff frequency (normalized: 0 to 0.5)
+             * @param order Filter order (1-8 recommended)
+             */
+            static IirFilter<T> createButterworthHighPass(T cutoffFreq, int order);
+
+            /**
+             * Create Butterworth band-pass filter
+             * @param lowCutoff Low cutoff frequency (normalized)
+             * @param highCutoff High cutoff frequency (normalized)
+             * @param order Filter order (per band, total = 2*order)
+             */
+            static IirFilter<T> createButterworthBandPass(T lowCutoff, T highCutoff, int order);
+
+            /**
+             * Create first-order low-pass filter (simple RC filter)
+             * @param cutoffFreq Cutoff frequency (normalized: 0 to 0.5)
+             */
+            static IirFilter<T> createFirstOrderLowPass(T cutoffFreq);
+
+            /**
+             * Create first-order high-pass filter
+             * @param cutoffFreq Cutoff frequency (normalized: 0 to 0.5)
+             */
+            static IirFilter<T> createFirstOrderHighPass(T cutoffFreq);
+
+            /**
+             * Create biquad filter from biquad coefficients
+             * y[n] = b0*x[n] + b1*x[n-1] + b2*x[n-2] - a1*y[n-1] - a2*y[n-2]
+             */
+            static IirFilter<T> createBiquad(T b0, T b1, T b2, T a1, T a2);
+
+        private:
+            std::vector<T> m_b_coeffs; // Feedforward coefficients (b[0], b[1], ..., b[M])
+            std::vector<T> m_a_coeffs; // Feedback coefficients (a[1], a[2], ..., a[N])
+            std::vector<T> m_x_state;  // Input history (x[n-1], x[n-2], ...)
+            std::vector<T> m_y_state;  // Output history (y[n-1], y[n-2], ...)
+            bool m_stateful;           // Whether to maintain state between calls
+
+            /**
+             * Bilinear transform: convert analog to digital filter
+             * s -> 2/T * (1 - z^-1) / (1 + z^-1)
+             */
+            static void bilinearTransform(T wc, int order, std::vector<T> &b, std::vector<T> &a);
+        };
+
+    } // namespace core
+} // namespace dsp
+
+#endif // DSP_CORE_IIR_FILTER_H

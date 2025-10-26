@@ -48,7 +48,14 @@ export class TextFormatter implements Formatter {
     let output = `[${timestamp}] ${level} [${topic}]${traceInfo} ${log.message}`;
 
     if (log.context && Object.keys(log.context).length > 0) {
-      output += `\n  Context: ${JSON.stringify(log.context)}`;
+      try {
+        output += `\n  Context: ${JSON.stringify(log.context)}`;
+      } catch (error) {
+        // Handle circular references or non-serializable values
+        output += `\n  Context: [Unable to stringify: ${
+          error instanceof Error ? error.message : "unknown error"
+        }]`;
+      }
     }
 
     return output;
@@ -327,14 +334,24 @@ export interface BackendConfig {
 /**
  * PagerDuty alert handler
  * Sends critical errors to PagerDuty for incident management
+ *
+ * Authentication: Requires a routing_key (Integration Key) from PagerDuty
+ * Regional endpoints: US (default), EU requires custom endpoint
+ *
+ * @throws Error if routing_key is invalid or endpoint is unreachable
  */
 export function createPagerDutyHandler(config: BackendConfig) {
   const { endpoint, apiKey } = config;
   const severityMap = SEVERITY_MAPPINGS.pagerduty;
 
+  if (!endpoint || !apiKey) {
+    console.warn(
+      "PagerDuty handler: endpoint or apiKey (routing_key) not configured. Logs will be dropped."
+    );
+  }
+
   return async (log: LogEntry): Promise<void> => {
     if (!endpoint || !apiKey) {
-      console.warn("PagerDuty handler: endpoint or apiKey not configured");
       return;
     }
 
@@ -361,7 +378,16 @@ export function createPagerDutyHandler(config: BackendConfig) {
             },
           };
 
-          await postJSON(endpoint, payload, config.headers, "POST", log);
+          try {
+            await postJSON(endpoint, payload, config.headers, "POST", log);
+          } catch (error) {
+            if (error instanceof Error && error.message.includes("401")) {
+              throw new Error(
+                `PagerDuty authentication failed: Invalid routing_key. Check your Integration Key.`
+              );
+            }
+            throw error;
+          }
         },
         3,
         // Retry callback (unused here, but could increment logger metrics)
@@ -374,13 +400,24 @@ export function createPagerDutyHandler(config: BackendConfig) {
 /**
  * Prometheus metrics handler
  * Exports metrics to Prometheus Pushgateway
+ *
+ * Authentication: Varies by setup
+ * - May require HTTP Basic Auth (pass via config.headers)
+ * - Or rely on network-level controls (VPN, firewall)
+ *
+ * @throws Error if authentication fails or endpoint is unreachable
  */
 export function createPrometheusHandler(config: BackendConfig) {
   const { endpoint } = config;
 
+  if (!endpoint) {
+    console.warn(
+      "Prometheus handler: endpoint not configured. Metrics will be dropped."
+    );
+  }
+
   return async (log: LogEntry): Promise<void> => {
     if (!endpoint) {
-      console.warn("Prometheus handler: endpoint not configured");
       return;
     }
 
@@ -397,17 +434,34 @@ export function createPrometheusHandler(config: BackendConfig) {
           log.context?.value || 1
         } ${timestamp}`;
 
-        const response = await fetch(`${endpoint}/metrics/job/dsp_pipeline`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "text/plain",
-            ...config.headers,
-          },
-          body: metric,
-        });
+        try {
+          const response = await fetch(`${endpoint}/metrics/job/dsp_pipeline`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "text/plain",
+              ...config.headers,
+            },
+            body: metric,
+          });
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status} - ${response.statusText}`);
+          if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+              throw new Error(
+                `Prometheus authentication failed (${response.status}). Check config.headers for HTTP Basic Auth credentials.`
+              );
+            }
+            throw new Error(`HTTP ${response.status} - ${response.statusText}`);
+          }
+        } catch (error) {
+          if (
+            error instanceof Error &&
+            error.message.includes("ECONNREFUSED")
+          ) {
+            throw new Error(
+              `Prometheus Pushgateway unreachable at ${endpoint}. Check network and endpoint.`
+            );
+          }
+          throw error;
         }
       });
     });
@@ -417,11 +471,24 @@ export function createPrometheusHandler(config: BackendConfig) {
 /**
  * Grafana Loki log handler
  * Sends logs to Loki for centralized logging
+ *
+ * Authentication: Varies by setup
+ * - Bearer token (most common, passed as apiKey)
+ * - HTTP Basic Auth (pass via config.headers)
+ * - Multi-tenant ID in X-Scope-OrgID header (pass via config.headers)
+ *
+ * @throws Error if authentication fails or endpoint is unreachable
  */
 export function createLokiHandler(config: BackendConfig): HandlerWithFlush {
   const { endpoint, apiKey } = config;
   const buffer: LogEntry[] = [];
   let flushTimer: NodeJS.Timeout | null = null;
+
+  if (!endpoint) {
+    console.warn(
+      "Loki handler: endpoint not configured. Logs will be buffered but never sent."
+    );
+  }
 
   const flush = async (): Promise<void> => {
     if (buffer.length === 0) return;
@@ -453,7 +520,21 @@ export function createLokiHandler(config: BackendConfig): HandlerWithFlush {
           headers["Authorization"] = `Bearer ${apiKey}`;
         }
 
-        await postJSON(`${endpoint}/loki/api/v1/push`, payload, headers);
+        try {
+          await postJSON(`${endpoint}/loki/api/v1/push`, payload, headers);
+        } catch (error) {
+          if (error instanceof Error) {
+            if (
+              error.message.includes("401") ||
+              error.message.includes("403")
+            ) {
+              throw new Error(
+                `Loki authentication failed. Check apiKey (Bearer token) or config.headers for Basic Auth / X-Scope-OrgID.`
+              );
+            }
+          }
+          throw error;
+        }
       });
     } catch (error) {
       // Requeue failed logs for next flush attempt
@@ -464,7 +545,6 @@ export function createLokiHandler(config: BackendConfig): HandlerWithFlush {
 
   const handler: HandlerWithFlush = async (log: LogEntry): Promise<void> => {
     if (!endpoint) {
-      console.warn("Loki handler: endpoint not configured");
       return;
     }
 
@@ -498,13 +578,35 @@ export function createLokiHandler(config: BackendConfig): HandlerWithFlush {
 /**
  * AWS CloudWatch Logs handler
  * Sends logs to CloudWatch for AWS-native logging
+ *
+ * ⚠️ WARNING: Manual AWS authentication is error-prone!
+ * This implementation uses simple API key passing, which may not work
+ * in many AWS environments (IAM roles, instance profiles, temporary credentials).
+ *
+ * RECOMMENDED: Use @aws-sdk/client-cloudwatch-logs for automatic credential
+ * discovery and request signing instead of this manual approach.
+ *
+ * Authentication requirements:
+ * - AWS Access Key ID and Secret Access Key
+ * - Proper IAM permissions (logs:PutLogEvents, logs:CreateLogStream, etc.)
+ * - Regional endpoint configuration
+ *
+ * @deprecated Consider using AWS SDK instead for production use
+ * @throws Error if credentials are invalid or permissions are insufficient
  */
 export function createCloudWatchHandler(config: BackendConfig) {
   const { endpoint, apiKey } = config;
 
+  if (!endpoint || !apiKey) {
+    console.warn(
+      "CloudWatch handler: endpoint or apiKey not configured. " +
+        "Note: AWS authentication is complex - consider using @aws-sdk/client-cloudwatch-logs " +
+        "for automatic credential discovery. Logs will be dropped."
+    );
+  }
+
   return async (log: LogEntry): Promise<void> => {
     if (!endpoint) {
-      console.warn("CloudWatch handler: endpoint not configured");
       return;
     }
 
@@ -526,12 +628,28 @@ export function createCloudWatchHandler(config: BackendConfig) {
           ],
         };
 
-        await postJSON(endpoint, payload, {
-          "Content-Type": "application/x-amz-json-1.1",
-          "X-Amz-Target": "Logs_20140328.PutLogEvents",
-          Authorization: apiKey || "",
-          ...config.headers,
-        });
+        try {
+          await postJSON(endpoint, payload, {
+            "Content-Type": "application/x-amz-json-1.1",
+            "X-Amz-Target": "Logs_20140328.PutLogEvents",
+            Authorization: apiKey || "",
+            ...config.headers,
+          });
+        } catch (error) {
+          if (error instanceof Error) {
+            if (
+              error.message.includes("403") ||
+              error.message.includes("UnauthorizedOperation") ||
+              error.message.includes("InvalidClientTokenId")
+            ) {
+              throw new Error(
+                `CloudWatch authentication failed. AWS requires proper IAM credentials and request signing. ` +
+                  `Consider using @aws-sdk/client-cloudwatch-logs instead of manual fetch. Error: ${error.message}`
+              );
+            }
+          }
+          throw error;
+        }
       });
     });
   };
@@ -540,15 +658,25 @@ export function createCloudWatchHandler(config: BackendConfig) {
 /**
  * Datadog log handler
  * Sends logs to Datadog for unified observability
+ *
+ * Authentication: API key embedded in URL path
+ * Regional endpoints: US (default), EU requires custom endpoint
+ *
+ * @throws Error if API key is invalid or endpoint is incorrect
  */
 export function createDatadogHandler(config: BackendConfig) {
   const { endpoint = "https://http-intake.logs.datadoghq.com", apiKey } =
     config;
   const severityMap = SEVERITY_MAPPINGS.datadog;
 
+  if (!apiKey) {
+    console.warn(
+      "Datadog handler: apiKey not configured. Logs will be dropped."
+    );
+  }
+
   return async (log: LogEntry): Promise<void> => {
     if (!apiKey) {
-      console.warn("Datadog handler: apiKey not configured");
       return;
     }
 
@@ -570,11 +698,25 @@ export function createDatadogHandler(config: BackendConfig) {
           ...log.context,
         };
 
-        await postJSON(
-          `${endpoint}/v1/input/${apiKey}`,
-          payload,
-          config.headers
-        );
+        try {
+          await postJSON(
+            `${endpoint}/v1/input/${apiKey}`,
+            payload,
+            config.headers
+          );
+        } catch (error) {
+          if (error instanceof Error) {
+            if (
+              error.message.includes("403") ||
+              error.message.includes("401")
+            ) {
+              throw new Error(
+                `Datadog authentication failed. Check apiKey validity and regional endpoint (US vs EU). Error: ${error.message}`
+              );
+            }
+          }
+          throw error;
+        }
       });
     });
   };
