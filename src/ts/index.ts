@@ -42,6 +42,19 @@ export {
   type WindowType,
   type FftMode,
 } from "./fft";
+export {
+  FirFilter,
+  IirFilter,
+  createFilter,
+  type FilterType,
+  type FilterMode,
+  type FilterOptions,
+  type FirFilterOptions,
+  type IirFilterOptions,
+  type ButterworthFilterOptions,
+  type ChebyshevFilterOptions,
+  type BiquadFilterOptions,
+} from "./filters";
 export { egg } from "./easter-egg";
 export type {
   DriftStatistics,

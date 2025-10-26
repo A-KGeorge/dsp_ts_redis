@@ -59,11 +59,11 @@ This roadmap outlines the planned evolution of **dsp-ts-redis** — a native **C
 
 ### 🔴 **Stage 3 — Advanced DSP / FFT / Wavelets**
 
-| Priority | Category                                                     | Status | Notes                          |
-| -------- | ------------------------------------------------------------ | ------ | ------------------------------ |
-| 8️⃣       | `fft`, `hilbertTransform`, `hilbertEnvelope`                 | [ ]    | Transform foundation           |
-| 9️⃣       | `firFilter`, `butterworthFilter`, `notchFilter`, `iirFilter` | [ ]    | Real-world filter validation   |
-| 🔟       | `waveletTransform`, `haar`, `db2–db10`                       | [ ]    | Decomposition + reconstruction |
+| Priority | Category                                                     | Status        | Notes                          |
+| -------- | ------------------------------------------------------------ | ------------- | ------------------------------ |
+| 8️⃣       | `fft`, `hilbertTransform`, `hilbertEnvelope`                 | [X] (partial) | Transform foundation           |
+| 9️⃣       | `firFilter`, `butterworthFilter`, `notchFilter`, `iirFilter` | [X]           | Real-world filter validation   |
+| 🔟       | `waveletTransform`, `haar`, `db2–db10`                       | [ ]           | Decomposition + reconstruction |
 
 ---
 
