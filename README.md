@@ -1749,6 +1749,24 @@ Interested in collaborating? Open an issue!
 - **Fix**: Explicitly listed all source files in `binding.gyp`
 - **File**: `binding.gyp`
 
+---
+
+## ⚠️ Alpha Disclaimer
+
+> **Important:** This library is currently in **alpha**.
+> It has **not been tested in production** and is primarily intended for
+> research, prototyping, and performance experimentation.
+>
+> - Use it **at your own discretion**.
+> - If you encounter bugs, crashes, or inconsistent behavior, please **open an issue**.
+> - Pull requests (PRs) are welcome — I’ll review and merge fixes or improvements as time allows.
+>
+> The goal is to build a **community-maintained** DSP framework.  
+> Early adopters are encouraged to contribute benchmarks, feature requests,
+> and test results to help make this stable for real-world deployments.
+
+---
+
 ### Testing
 
 All 281 tests pass after these fixes. Run `npm test` to verify.

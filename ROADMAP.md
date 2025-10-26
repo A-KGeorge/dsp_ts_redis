@@ -51,12 +51,12 @@ This roadmap outlines the planned evolution of **dsp-ts-redis** — a native **C
 
 ### 🟨 **Stage 2 — Intermediate (Math + Buffer Dependent)**
 
-| Priority | Category                                              | Status        | Notes                                |
-| -------- | ----------------------------------------------------- | ------------- | ------------------------------------ |
-| 4️⃣       | `zScoreNormalize`, `mav`, `hjorthParameters`          | [X] (partial) | Window math & standard deviation ops |
-| 5️⃣       | `polyphaseDecimate`, `interpolate`, `resample`        | [ ]           | Leverage circular buffers            |
-| 6️⃣       | `spectralCentroid`, `spectralRolloff`, `spectralFlux` | [ ]           | Derived FFT metrics                  |
-| 7️⃣       | `entropy`, `sampleEntropy`, `approximateEntropy`      | [ ]           | Complexity metrics per window        |
+| Priority | Category                                              | Status | Notes                                |
+| -------- | ----------------------------------------------------- | ------ | ------------------------------------ |
+| 4️⃣       | `zScoreNormalize`, `mav`, `hjorthParameters`          | [X]    | Window math & standard deviation ops |
+| 5️⃣       | `polyphaseDecimate`, `interpolate`, `resample`        | [ ]    | Leverage circular buffers            |
+| 6️⃣       | `spectralCentroid`, `spectralRolloff`, `spectralFlux` | [X]    | Derived FFT metrics                  |
+| 7️⃣       | `entropy`, `sampleEntropy`, `approximateEntropy`      | [X]    | Complexity metrics per window        |
 
 ---
 
@@ -164,8 +164,8 @@ dsp-ts-redis/
 
 - [x] Add time-domain EMG features (`waveformLength`, `willisonAmplitude`, `slopeSignChange`)
 - [x] Implement true time-based filtering with sample expiration by age
-- [ ] Introduce FFT and Hilbert transform pipeline
-- [ ] Begin filter design (Butterworth + Notch)
+- [x] Introduce FFT and Hilbert transform pipeline (partial)
+- [x] Begin filter design (Butterworth + Notch)
 - [ ] Add server-side plotting (matplotlib-like) for debugging and reports
 - [ ] Build real-time dashboard with D3.js + uWebSockets for live visualization
 - [ ] Benchmark native C++ vs pure JS performance
