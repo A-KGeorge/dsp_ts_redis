@@ -1651,7 +1651,8 @@ npm test    # Run all tests
 - ✅ **Async Processing**: Background thread via Napi::AsyncWorker
 - ✅ **Pipeline Callbacks**: Batched and individual callbacks with topic routing
 - ✅ **Streaming Tests**: Comprehensive streaming validation with interruption recovery
-- 🚧 **Additional Filters**: IIR, FIR, FFT (coming soon)
+- ✅ **Core DSP**: IIR, FIR, FFT
+- 🚧 **Additional Filters**: polyphaseDecimate, interpolate, resample
 
 ---
 
