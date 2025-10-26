@@ -71,13 +71,33 @@ export type FftMode =
 /**
  * FFT Processor - Core transform engine
  *
+ * **IMPORTANT: Radix-2 (Power-of-2) Requirement**
+ *
+ * The FFT/IFFT/RFFT/IRFFT transforms use the **Cooley-Tukey radix-2 algorithm**,
+ * which requires the input size to be a power of 2 (e.g., 64, 128, 256, 512, 1024, 2048, 4096, ...).
+ *
+ * If your data length is not a power of 2:
+ * 1. **Use DFT/IDFT/RDFT/IRDFT** - These work with any size but are slower (O(N²) vs O(N log N))
+ * 2. **Zero-pad your signal** - Use `FftUtils.padToPowerOfTwo()` to automatically pad to next power of 2
+ * 3. **Truncate or resample** - Adjust your signal to match a power-of-2 size
+ *
  * @example
  * ```ts
+ * // Example 1: Direct use with power-of-2 size
  * const fft = new FftProcessor(512);
- *
- * // Real-input FFT (most common)
  * const signal = new Float32Array(512);
- * const spectrum = fft.rfft(signal);
+ * const spectrum = fft.rfft(signal); // Fast O(N log N)
+ *
+ * // Example 2: Auto-padding for non-power-of-2 signals
+ * const rawSignal = new Float32Array(1000); // Not power of 2!
+ * const padded = FftUtils.padToPowerOfTwo(rawSignal); // Pads to 1024
+ * const fft2 = new FftProcessor(padded.length);
+ * const spectrum2 = fft2.rfft(padded);
+ *
+ * // Example 3: Use DFT for arbitrary sizes
+ * const fft3 = new FftProcessor(1000); // Any size
+ * const complexIn = { real: new Float32Array(1000), imag: new Float32Array(1000) };
+ * const spectrum3 = fft3.rdft(rawSignal); // Slower O(N²) but no padding needed
  *
  * // Get magnitude spectrum
  * const magnitudes = fft.getMagnitude(spectrum);
@@ -92,7 +112,12 @@ export class FftProcessor {
   /**
    * Create FFT processor
    *
-   * @param size FFT size (must be power of 2 for FFT/RFFT, any size for DFT/RDFT)
+   * @param size FFT size
+   * - For FFT/IFFT/RFFT/IRFFT: **MUST be power of 2** (64, 128, 256, 512, 1024, 2048, 4096, ...)
+   * - For DFT/IDFT/RDFT/IRDFT: Can be any positive integer
+   *
+   * @throws {Error} If size is not positive
+   * @throws {Error} If using FFT/RFFT methods with non-power-of-2 size
    */
   constructor(size: number) {
     this.native = new DspAddon.FftProcessor(size);
@@ -307,19 +332,38 @@ export class FftProcessor {
  * Provides sliding-window and frame-based FFT processing:
  * - Moving mode: Updates spectrum on every sample
  * - Batched mode: Processes complete frames with hop size
- * - Automatic windowing
+ * - **Automatic windowing** to reduce spectral leakage
  * - Overlap-add support
+ *
+ * **Windowing for Spectral Leakage Reduction:**
+ *
+ * When performing FFT on finite-length signals, discontinuities at the boundaries
+ * cause **spectral leakage** - energy from one frequency bin "leaking" into others.
+ * Window functions taper the signal at the edges to reduce this effect.
+ *
+ * Available window types:
+ * - `none`: Rectangular (no windowing) - fastest but most leakage
+ * - `hann`: Hann window - good general-purpose choice (default for audio)
+ * - `hamming`: Hamming window - slightly better frequency resolution than Hann
+ * - `blackman`: Blackman window - best sidelobe rejection, wider main lobe
+ * - `bartlett`: Triangular window - simple linear taper
+ *
+ * **Choosing a window:**
+ * - Audio analysis: Use `hann` (most common)
+ * - Narrowband signals: Use `hamming`
+ * - Wideband signals with interfering tones: Use `blackman`
+ * - Quick testing: Use `none` (but expect leakage)
  *
  * Uses native C++ implementation for high performance.
  *
  * @example
  * ```ts
- * // Batched processing with 50% overlap
+ * // Batched processing with 50% overlap and Hann windowing
  * const movingFft = new MovingFftProcessor({
  *   fftSize: 2048,
  *   hopSize: 1024,
  *   mode: "batched",
- *   windowType: "hann"
+ *   windowType: "hann" // Reduces spectral leakage!
  * });
  *
  * // Stream audio samples
@@ -327,11 +371,46 @@ export class FftProcessor {
  * movingFft.addSamples(samples, (spectrum, size) => {
  *   console.log(`Spectrum ready: ${size} bins`);
  * });
+ *
+ * // Compare windowing effects
+ * const noWindow = new MovingFftProcessor({ fftSize: 1024, windowType: "none" });
+ * const hannWindow = new MovingFftProcessor({ fftSize: 1024, windowType: "hann" });
+ * // hannWindow will show much cleaner spectral peaks!
  * ```
  */
 export class MovingFftProcessor {
   private native: any;
 
+  /**
+   * Create Moving FFT processor
+   *
+   * @param options Configuration object
+   * @param options.fftSize FFT size (must be power of 2 for FFT, any size for DFT)
+   * @param options.hopSize Hop size in samples (default: fftSize, i.e., no overlap)
+   * @param options.mode Processing mode (default: "batched")
+   * @param options.windowType Window function (default: "hann" for spectral leakage reduction)
+   * @param options.realInput Use real-input transforms (default: true)
+   *
+   * @throws {Error} If fftSize is invalid
+   * @throws {Error} If hopSize > fftSize
+   *
+   * @example
+   * ```ts
+   * // Audio spectral analysis with 75% overlap
+   * const audioFFT = new MovingFftProcessor({
+   *   fftSize: 2048,
+   *   hopSize: 512,        // 75% overlap
+   *   windowType: "hann"   // Reduce spectral leakage
+   * });
+   *
+   * // Vibration analysis with Blackman window
+   * const vibrationFFT = new MovingFftProcessor({
+   *   fftSize: 4096,
+   *   hopSize: 4096,        // No overlap
+   *   windowType: "blackman" // Best sidelobe rejection
+   * });
+   * ```
+   */
   constructor(options: {
     fftSize: number;
     hopSize?: number;
@@ -477,6 +556,61 @@ export class MovingFftProcessor {
  * Helper functions for common FFT operations
  */
 export namespace FftUtils {
+  /**
+   * Pad signal to next power of 2 with zeros
+   *
+   * This is the recommended approach for using FFT with arbitrary-length signals.
+   * Zero-padding allows you to use the fast FFT algorithm (O(N log N)) instead of
+   * the slower DFT (O(N²)).
+   *
+   * **Note on spectral resolution:**
+   * - Zero-padding does NOT increase spectral resolution
+   * - It only increases the number of frequency bins (interpolation)
+   * - True resolution is still limited by original signal length
+   *
+   * @param signal Input signal (any length)
+   * @returns Zero-padded signal (power-of-2 length)
+   *
+   * @example
+   * ```ts
+   * const signal = new Float32Array(1000); // Not power of 2
+   * const padded = FftUtils.padToPowerOfTwo(signal); // 1024 samples
+   * const fft = new FftProcessor(padded.length);
+   * const spectrum = fft.rfft(padded);
+   * ```
+   */
+  export function padToPowerOfTwo(signal: Float32Array): Float32Array {
+    const nextPow2 = nextPowerOfTwo(signal.length);
+
+    if (nextPow2 === signal.length) {
+      // Already power of 2, return as-is
+      return signal;
+    }
+
+    // Create zero-padded array
+    const padded = new Float32Array(nextPow2);
+    padded.set(signal);
+
+    return padded;
+  }
+
+  /**
+   * Check if number is a power of 2
+   *
+   * @param n Number to check
+   * @returns True if n is a power of 2
+   *
+   * @example
+   * ```ts
+   * FftUtils.isPowerOfTwo(512);  // true
+   * FftUtils.isPowerOfTwo(1000); // false
+   * FftUtils.isPowerOfTwo(1024); // true
+   * ```
+   */
+  export function isPowerOfTwo(n: number): boolean {
+    return n > 0 && (n & (n - 1)) === 0;
+  }
+
   /**
    * Find peak frequency in spectrum
    *
