@@ -1,14 +1,13 @@
 /**
  * Filter Design Examples
  *
- * Demonstrates the new unified filter API:
+ * Demonstrates the filter API:
  * - FIR filters (low-pass, high-pass, band-pass, band-stop)
- * - IIR filters (Butterworth low/high/band-pass)
- * - Unified createFilter() API
- * - Direct class methods vs unified API
+ * - IIR filters (Butterworth, Chebyshev, Biquad EQ)
+ * - Direct class methods for creating filters
  */
 
-import { createFilter, FirFilter, IirFilter } from "../filters.js";
+import { FirFilter, IirFilter } from "../filters.js";
 
 console.log("=== Filter Design Examples ===\n");
 
@@ -20,15 +19,13 @@ const sampleRate = 8000; // 8 kHz
 
 console.log("--- Example 1: FIR Low-Pass Filter ---");
 
-// Method 1: Using createFilter() (unified API)
-const firLowpass1 = createFilter({
-  type: "fir",
-  mode: "lowpass",
+// Using class static method
+const firLowpass1 = FirFilter.createLowPass({
   cutoffFrequency: 1000,
   sampleRate,
   order: 51,
   windowType: "hamming",
-}) as FirFilter;
+});
 
 console.log(`✅ FIR Low-pass (1000 Hz, order 51)`);
 console.log(`   Coefficients: ${firLowpass1.getCoefficients().length} taps`);
@@ -79,15 +76,13 @@ console.log(`   Coefficients: ${firHighpass.getCoefficients().length} taps\n`);
 
 console.log("--- Example 3: FIR Band-Pass Filter (Voice Band) ---");
 
-const voiceBandpass = createFilter({
-  type: "fir",
-  mode: "bandpass",
+const voiceBandpass = FirFilter.createBandPass({
   lowCutoffFrequency: 300,
   highCutoffFrequency: 3400,
   sampleRate,
   order: 101,
   windowType: "blackman",
-}) as FirFilter;
+});
 
 console.log(`✅ Voice band-pass (300-3400 Hz, order 101, Blackman window)`);
 console.log(`   Coefficients: ${voiceBandpass.getCoefficients().length} taps`);
@@ -140,9 +135,7 @@ console.log(`   Characteristics: Maximally flat passband\n`);
 
 console.log("--- Example 6: Butterworth High-Pass Filter ---");
 
-const butterworthHighpass = createFilter({
-  type: "butterworth",
-  mode: "highpass",
+const butterworthHighpass = IirFilter.createButterworthHighPass({
   cutoffFrequency: 500,
   sampleRate,
   order: 2,
@@ -234,9 +227,7 @@ console.log(`  - Stable: ${iir.isStable()}\n`);
 
 console.log("--- Example 10: Real-Time Filtering ---");
 
-const realtimeFilter = createFilter({
-  type: "butterworth",
-  mode: "lowpass",
+const realtimeFilter = IirFilter.createButterworthLowPass({
   cutoffFrequency: 1000,
   sampleRate,
   order: 4,
@@ -307,14 +298,16 @@ console.log("   - More taps = sharper transition, more computation");
 
 console.log("\n✅ IIR Filters:");
 console.log("   - Butterworth: Maximally flat passband");
+console.log("   - Chebyshev: Sharper rolloff with passband ripple");
 console.log("   - First-order: Simple, fast, gentle rolloff");
 console.log("   - More efficient than FIR (fewer coefficients)");
 console.log("   - Non-linear phase, can be unstable");
 
-console.log("\n✅ Unified API:");
-console.log("   - createFilter() - One function for all filter types");
-console.log("   - FirFilter.createX() - Direct class methods");
-console.log("   - IirFilter.createX() - Direct class methods");
+console.log("\n✅ Filter API:");
+console.log("   - FirFilter.createLowPass/HighPass/BandPass/BandStop()");
+console.log("   - IirFilter.createButterworthX() - Maximally flat");
+console.log("   - IirFilter.createChebyshevX() - Sharp rolloff");
+console.log("   - IirFilter.createPeakingEQ/LowShelf/HighShelf() - Biquad EQ");
 
 console.log("\n✅ Use Cases:");
 console.log("   - Audio: FIR with Hann/Hamming window");

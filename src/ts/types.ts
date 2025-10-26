@@ -435,3 +435,155 @@ export interface PipelineStateSummary {
   /** Array of stage summaries */
   stages: StageSummary[];
 }
+
+/**
+ * Hjorth parameters - measures of signal complexity
+ */
+export interface HjorthParameters {
+  /** Activity: Variance of the signal */
+  activity: number;
+  /** Mobility: Square root of (variance of first derivative / variance) */
+  mobility: number;
+  /** Complexity: Mobility of first derivative / Mobility of signal */
+  complexity: number;
+}
+
+/**
+ * Parameters for Hjorth parameters calculation
+ */
+export interface HjorthParams {
+  mode: "batch" | "moving";
+  /**
+   * Window size in samples (required for moving mode)
+   */
+  windowSize?: number;
+  /**
+   * Window duration in milliseconds (alternative to windowSize)
+   */
+  windowDuration?: number;
+}
+
+/**
+ * Parameters for decimation (downsampling)
+ */
+export interface DecimateParams {
+  /** Decimation factor M (output rate = input rate / M) */
+  factor: number;
+  /** Apply anti-aliasing filter before decimation (default: true) */
+  useAntiAliasingFilter?: boolean;
+  /** FIR filter order for anti-aliasing (default: auto-calculated) */
+  filterOrder?: number;
+}
+
+/**
+ * Parameters for interpolation (upsampling)
+ */
+export interface InterpolateParams {
+  /** Interpolation factor L (output rate = input rate * L) */
+  factor: number;
+  /** Apply anti-imaging filter after interpolation (default: true) */
+  useAntiImagingFilter?: boolean;
+  /** FIR filter order for anti-imaging (default: auto-calculated) */
+  filterOrder?: number;
+}
+
+/**
+ * Parameters for resampling (rational rate conversion)
+ */
+export interface ResampleParams {
+  /** Interpolation factor L */
+  upsampleFactor: number;
+  /** Decimation factor M (new rate = old rate * L / M) */
+  downsampleFactor: number;
+  /** Apply combined anti-aliasing/anti-imaging filter (default: true) */
+  useFilter?: boolean;
+  /** FIR filter order (default: auto-calculated) */
+  filterOrder?: number;
+}
+
+/**
+ * Spectral features extracted from FFT
+ */
+export interface SpectralFeatures {
+  /** Spectral centroid: center of mass of spectrum (Hz) */
+  centroid: number;
+  /** Spectral rolloff: frequency below which X% of energy is contained (Hz) */
+  rolloff: number;
+  /** Spectral flux: change in spectrum from previous frame */
+  flux: number;
+}
+
+/**
+ * Parameters for spectral feature extraction
+ */
+export interface SpectralFeaturesParams {
+  /** FFT size (should be power of 2, default: 2048) */
+  fftSize?: number;
+  /** Rolloff percentage (0-100, default: 85) */
+  rolloffPercentage?: number;
+}
+
+/**
+ * Parameters for Shannon entropy calculation
+ */
+export interface EntropyParams {
+  mode: "batch" | "moving";
+  /**
+   * Window size in samples (required for moving mode)
+   */
+  windowSize?: number;
+  /**
+   * Window duration in milliseconds (alternative to windowSize)
+   */
+  windowDuration?: number;
+  /**
+   * Number of bins for histogram (default: 256)
+   */
+  numBins?: number;
+}
+
+/**
+ * Parameters for Sample Entropy (SampEn)
+ */
+export interface SampleEntropyParams {
+  mode: "batch" | "moving";
+  /**
+   * Window size in samples (required for moving mode)
+   */
+  windowSize?: number;
+  /**
+   * Window duration in milliseconds (alternative to windowSize)
+   */
+  windowDuration?: number;
+  /**
+   * Pattern length (default: 2)
+   */
+  m?: number;
+  /**
+   * Tolerance for matching (default: 0.2 * std deviation)
+   */
+  r?: number;
+}
+
+/**
+ * Parameters for Approximate Entropy (ApEn)
+ */
+export interface ApproximateEntropyParams {
+  mode: "batch" | "moving";
+  /**
+   * Window size in samples (required for moving mode)
+   */
+  windowSize?: number;
+  /**
+   * Window duration in milliseconds (alternative to windowSize)
+   */
+  windowDuration?: number;
+  /**
+   * Pattern length (default: 2)
+   */
+  m?: number;
+  /**
+   * Tolerance for matching (default: 0.2 * std deviation)
+   */
+  r?: number;
+}

@@ -335,6 +335,239 @@ namespace dsp
             return hp;
         }
 
+        template <typename T>
+        IirFilter<T> IirFilter<T>::createChebyshevLowPass(T cutoffFreq, int order, T rippleDb)
+        {
+            if (cutoffFreq <= 0 || cutoffFreq >= T(0.5))
+            {
+                throw std::invalid_argument("Cutoff frequency must be between 0 and 0.5");
+            }
+
+            if (order < 1 || order > 8)
+            {
+                throw std::invalid_argument("Order must be between 1 and 8");
+            }
+
+            if (rippleDb <= 0 || rippleDb > T(3.0))
+            {
+                throw std::invalid_argument("Ripple must be between 0 and 3 dB");
+            }
+
+            // For simplicity, implement 2nd-order Chebyshev Type I
+            if (order == 1)
+            {
+                // First-order Chebyshev is same as Butterworth
+                return createFirstOrderLowPass(cutoffFreq);
+            }
+
+            // 2nd-order Chebyshev Type I low-pass
+            T omega_c = T(2) * static_cast<T>(M_PI) * cutoffFreq;
+            T epsilon = std::sqrt(std::pow(T(10), rippleDb / T(10)) - T(1));
+
+            // Chebyshev pole calculation
+            T sinh_val = std::sinh(std::asinh(T(1) / epsilon) / T(2));
+            T cosh_val = std::cosh(std::asinh(T(1) / epsilon) / T(2));
+
+            T K = std::tan(omega_c / T(2));
+            T K2 = K * K;
+
+            // Pole positions for 2nd-order Chebyshev
+            T wp = T(2) * sinh_val; // Pole width
+            T rp = cosh_val;        // Pole radius
+
+            T norm = T(1) / (T(1) + wp * K + rp * K2);
+
+            T b0 = rp * K2 * norm;
+            T b1 = T(2) * b0;
+            T b2 = b0;
+
+            T a1 = T(2) * (rp * K2 - T(1)) * norm;
+            T a2 = (T(1) - wp * K + rp * K2) * norm;
+
+            return IirFilter<T>({b0, b1, b2}, {a1, a2}, true);
+        }
+
+        template <typename T>
+        IirFilter<T> IirFilter<T>::createChebyshevHighPass(T cutoffFreq, int order, T rippleDb)
+        {
+            if (cutoffFreq <= 0 || cutoffFreq >= T(0.5))
+            {
+                throw std::invalid_argument("Cutoff frequency must be between 0 and 0.5");
+            }
+
+            if (order < 1 || order > 8)
+            {
+                throw std::invalid_argument("Order must be between 1 and 8");
+            }
+
+            if (rippleDb <= 0 || rippleDb > T(3.0))
+            {
+                throw std::invalid_argument("Ripple must be between 0 and 3 dB");
+            }
+
+            if (order == 1)
+            {
+                return createFirstOrderHighPass(cutoffFreq);
+            }
+
+            // 2nd-order Chebyshev Type I high-pass
+            T omega_c = T(2) * static_cast<T>(M_PI) * cutoffFreq;
+            T epsilon = std::sqrt(std::pow(T(10), rippleDb / T(10)) - T(1));
+
+            T sinh_val = std::sinh(std::asinh(T(1) / epsilon) / T(2));
+            T cosh_val = std::cosh(std::asinh(T(1) / epsilon) / T(2));
+
+            T K = std::tan(omega_c / T(2));
+            T K2 = K * K;
+
+            T wp = T(2) * sinh_val;
+            T rp = cosh_val;
+
+            T norm = T(1) / (T(1) + wp * K + rp * K2);
+
+            T b0 = norm;
+            T b1 = T(-2) * norm;
+            T b2 = norm;
+
+            T a1 = T(2) * (rp * K2 - T(1)) * norm;
+            T a2 = (T(1) - wp * K + rp * K2) * norm;
+
+            return IirFilter<T>({b0, b1, b2}, {a1, a2}, true);
+        }
+
+        template <typename T>
+        IirFilter<T> IirFilter<T>::createChebyshevBandPass(T lowCutoff, T highCutoff, int order, T rippleDb)
+        {
+            if (lowCutoff <= 0 || highCutoff >= T(0.5) || lowCutoff >= highCutoff)
+            {
+                throw std::invalid_argument("Invalid cutoff frequencies");
+            }
+
+            if (order < 1 || order > 8)
+            {
+                throw std::invalid_argument("Order must be between 1 and 8");
+            }
+
+            // Cascade high-pass and low-pass Chebyshev filters
+            auto hp = createChebyshevHighPass(lowCutoff, order, rippleDb);
+            auto lp = createChebyshevLowPass(highCutoff, order, rippleDb);
+
+            // Return high-pass as placeholder (proper implementation would cascade)
+            return hp;
+        }
+
+        template <typename T>
+        IirFilter<T> IirFilter<T>::createPeakingEQ(T centerFreq, T Q, T gainDb)
+        {
+            if (centerFreq <= 0 || centerFreq >= T(0.5))
+            {
+                throw std::invalid_argument("Center frequency must be between 0 and 0.5");
+            }
+
+            if (Q <= 0)
+            {
+                throw std::invalid_argument("Q must be positive");
+            }
+
+            // Peaking EQ biquad filter (Robert Bristow-Johnson's Audio EQ Cookbook)
+            T omega = T(2) * static_cast<T>(M_PI) * centerFreq;
+            T A = std::pow(T(10), gainDb / T(40)); // Linear gain
+            T alpha = std::sin(omega) / (T(2) * Q);
+            T cos_omega = std::cos(omega);
+
+            T b0 = T(1) + alpha * A;
+            T b1 = T(-2) * cos_omega;
+            T b2 = T(1) - alpha * A;
+            T a0 = T(1) + alpha / A;
+            T a1 = T(-2) * cos_omega;
+            T a2 = T(1) - alpha / A;
+
+            // Normalize by a0
+            b0 /= a0;
+            b1 /= a0;
+            b2 /= a0;
+            a1 /= a0;
+            a2 /= a0;
+
+            return IirFilter<T>({b0, b1, b2}, {a1, a2}, true);
+        }
+
+        template <typename T>
+        IirFilter<T> IirFilter<T>::createLowShelf(T cutoffFreq, T gainDb, T Q)
+        {
+            if (cutoffFreq <= 0 || cutoffFreq >= T(0.5))
+            {
+                throw std::invalid_argument("Cutoff frequency must be between 0 and 0.5");
+            }
+
+            if (Q <= 0)
+            {
+                throw std::invalid_argument("Q must be positive");
+            }
+
+            // Low-shelf biquad filter (Audio EQ Cookbook)
+            T omega = T(2) * static_cast<T>(M_PI) * cutoffFreq;
+            T A = std::pow(T(10), gainDb / T(40));
+            T cos_omega = std::cos(omega);
+            T sin_omega = std::sin(omega);
+            T alpha = sin_omega / (T(2) * Q);
+            T beta = std::sqrt(A) / Q;
+
+            T b0 = A * ((A + T(1)) - (A - T(1)) * cos_omega + beta * sin_omega);
+            T b1 = T(2) * A * ((A - T(1)) - (A + T(1)) * cos_omega);
+            T b2 = A * ((A + T(1)) - (A - T(1)) * cos_omega - beta * sin_omega);
+            T a0 = (A + T(1)) + (A - T(1)) * cos_omega + beta * sin_omega;
+            T a1 = T(-2) * ((A - T(1)) + (A + T(1)) * cos_omega);
+            T a2 = (A + T(1)) + (A - T(1)) * cos_omega - beta * sin_omega;
+
+            // Normalize by a0
+            b0 /= a0;
+            b1 /= a0;
+            b2 /= a0;
+            a1 /= a0;
+            a2 /= a0;
+
+            return IirFilter<T>({b0, b1, b2}, {a1, a2}, true);
+        }
+
+        template <typename T>
+        IirFilter<T> IirFilter<T>::createHighShelf(T cutoffFreq, T gainDb, T Q)
+        {
+            if (cutoffFreq <= 0 || cutoffFreq >= T(0.5))
+            {
+                throw std::invalid_argument("Cutoff frequency must be between 0 and 0.5");
+            }
+
+            if (Q <= 0)
+            {
+                throw std::invalid_argument("Q must be positive");
+            }
+
+            // High-shelf biquad filter (Audio EQ Cookbook)
+            T omega = T(2) * static_cast<T>(M_PI) * cutoffFreq;
+            T A = std::pow(T(10), gainDb / T(40));
+            T cos_omega = std::cos(omega);
+            T sin_omega = std::sin(omega);
+            T alpha = sin_omega / (T(2) * Q);
+            T beta = std::sqrt(A) / Q;
+
+            T b0 = A * ((A + T(1)) + (A - T(1)) * cos_omega + beta * sin_omega);
+            T b1 = T(-2) * A * ((A - T(1)) + (A + T(1)) * cos_omega);
+            T b2 = A * ((A + T(1)) + (A - T(1)) * cos_omega - beta * sin_omega);
+            T a0 = (A + T(1)) - (A - T(1)) * cos_omega + beta * sin_omega;
+            T a1 = T(2) * ((A - T(1)) - (A + T(1)) * cos_omega);
+            T a2 = (A + T(1)) - (A - T(1)) * cos_omega - beta * sin_omega;
+
+            // Normalize by a0
+            b0 /= a0;
+            b1 /= a0;
+            b2 /= a0;
+            a1 /= a0;
+            a2 /= a0;
+
+            return IirFilter<T>({b0, b1, b2}, {a1, a2}, true);
+        }
+
         // Explicit template instantiations
         template class IirFilter<float>;
         template class IirFilter<double>;

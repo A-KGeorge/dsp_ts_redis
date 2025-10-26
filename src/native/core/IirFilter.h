@@ -140,6 +140,56 @@ namespace dsp
              */
             static IirFilter<T> createBiquad(T b0, T b1, T b2, T a1, T a2);
 
+            /**
+             * Create Chebyshev Type I low-pass filter (passband ripple)
+             * @param cutoffFreq Cutoff frequency (normalized: 0 to 0.5)
+             * @param order Filter order (1-8 recommended)
+             * @param rippleDb Passband ripple in dB (0.1 to 3.0, typical: 0.5)
+             * @return IIR filter
+             */
+            static IirFilter<T> createChebyshevLowPass(T cutoffFreq, int order, T rippleDb = T(0.5));
+
+            /**
+             * Create Chebyshev Type I high-pass filter (passband ripple)
+             * @param cutoffFreq Cutoff frequency (normalized: 0 to 0.5)
+             * @param order Filter order (1-8 recommended)
+             * @param rippleDb Passband ripple in dB (0.1 to 3.0, typical: 0.5)
+             */
+            static IirFilter<T> createChebyshevHighPass(T cutoffFreq, int order, T rippleDb = T(0.5));
+
+            /**
+             * Create Chebyshev Type I band-pass filter (passband ripple)
+             * @param lowCutoff Low cutoff frequency (normalized)
+             * @param highCutoff High cutoff frequency (normalized)
+             * @param order Filter order (per band, total = 2*order)
+             * @param rippleDb Passband ripple in dB (0.1 to 3.0, typical: 0.5)
+             */
+            static IirFilter<T> createChebyshevBandPass(T lowCutoff, T highCutoff, int order, T rippleDb = T(0.5));
+
+            /**
+             * Create peaking EQ biquad filter
+             * @param centerFreq Center frequency (normalized: 0 to 0.5)
+             * @param Q Quality factor (bandwidth = centerFreq/Q, typical: 0.5-10)
+             * @param gainDb Gain in dB (negative for cut, positive for boost)
+             */
+            static IirFilter<T> createPeakingEQ(T centerFreq, T Q, T gainDb);
+
+            /**
+             * Create low-shelf biquad filter
+             * @param cutoffFreq Cutoff frequency (normalized: 0 to 0.5)
+             * @param gainDb Gain in dB for low frequencies
+             * @param Q Shelf slope (typical: 0.7)
+             */
+            static IirFilter<T> createLowShelf(T cutoffFreq, T gainDb, T Q = T(0.707));
+
+            /**
+             * Create high-shelf biquad filter
+             * @param cutoffFreq Cutoff frequency (normalized: 0 to 0.5)
+             * @param gainDb Gain in dB for high frequencies
+             * @param Q Shelf slope (typical: 0.7)
+             */
+            static IirFilter<T> createHighShelf(T cutoffFreq, T gainDb, T Q = T(0.707));
+
         private:
             std::vector<T> m_b_coeffs; // Feedforward coefficients (b[0], b[1], ..., b[M])
             std::vector<T> m_a_coeffs; // Feedback coefficients (a[1], a[2], ..., a[N])

@@ -21,6 +21,13 @@ import type {
 } from "./types.js";
 import { CircularLogBuffer } from "./CircularLogBuffer.js";
 import { DriftDetector } from "./DriftDetector.js";
+import {
+  FirFilter,
+  IirFilter,
+  type FilterOptions,
+  type FilterType,
+  type FilterMode,
+} from "./filters.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -581,6 +588,312 @@ class DspProcessor {
     const currentStageName = this.stages.join(" → ") || "start";
     this.tapCallbacks.push({ stageName: currentStageName, callback });
     return this;
+  }
+
+  /**
+   * Add a filter stage to the pipeline
+   * Supports FIR and IIR filters with various designs (Butterworth, Chebyshev, etc.)
+   *
+   * @param options - Filter configuration options
+   * @returns this instance for method chaining
+   *
+   * @example
+   * // FIR low-pass filter
+   * pipeline.filter({
+   *   type: "fir",
+   *   mode: "lowpass",
+   *   cutoffFrequency: 1000,
+   *   sampleRate: 8000,
+   *   order: 51
+   * });
+   *
+   * @example
+   * // Butterworth band-pass filter
+   * pipeline.filter({
+   *   type: "butterworth",
+   *   mode: "bandpass",
+   *   lowCutoffFrequency: 300,
+   *   highCutoffFrequency: 3000,
+   *   sampleRate: 8000,
+   *   order: 4
+   * });
+   *
+   * @example
+   * // Chebyshev low-pass with ripple
+   * pipeline.filter({
+   *   type: "chebyshev",
+   *   mode: "lowpass",
+   *   cutoffFrequency: 1000,
+   *   sampleRate: 8000,
+   *   order: 2,
+   *   ripple: 0.5
+   * });
+   *
+   * @example
+   * // Peaking EQ (biquad)
+   * pipeline.filter({
+   *   type: "biquad",
+   *   mode: "peak",
+   *   centerFrequency: 1000,
+   *   sampleRate: 8000,
+   *   q: 2.0,
+   *   gain: 6.0
+   * });
+   */
+  filter(options: FilterOptions): this {
+    // Create the appropriate filter based on type
+    let filterInstance: FirFilter | IirFilter;
+
+    switch (options.type) {
+      case "fir":
+        filterInstance = this.createFirFilter(options);
+        break;
+
+      case "butterworth":
+        filterInstance = this.createButterworthFilter(options);
+        break;
+
+      case "chebyshev":
+        filterInstance = this.createChebyshevFilter(options);
+        break;
+
+      case "biquad":
+        filterInstance = this.createBiquadFilter(options);
+        break;
+
+      case "iir":
+      default:
+        throw new Error(
+          `Filter type "${options.type}" not yet implemented for pipeline chaining. Use standalone filter methods instead.`
+        );
+    }
+
+    // Store the filter instance for processing
+    // Note: We'll need to process through this filter during the process() call
+    // For now, this is a placeholder - we need C++ support for filter stages in pipeline
+
+    throw new Error(
+      "Filter stages in pipeline not yet implemented in C++ layer. Use standalone filters with manual chaining instead:\n" +
+        "  const filter = IirFilter.createButterworthLowPass({...});\n" +
+        "  const output1 = await pipeline.process(samples);\n" +
+        "  const output2 = filter.process(output1);"
+    );
+
+    // Future: Once C++ support is added, this would be:
+    // this.nativeInstance.addFilterStage(filterInstance.getNative());
+    // this.stages.push(`filter:${options.type}:${options.mode}`);
+    // return this;
+  }
+
+  /**
+   * Helper to create FIR filter from options
+   */
+  private createFirFilter(options: FilterOptions & { type: "fir" }): FirFilter {
+    const { mode, cutoffFrequency, lowCutoffFrequency, highCutoffFrequency } =
+      options;
+
+    switch (mode) {
+      case "lowpass":
+        if (!cutoffFrequency) {
+          throw new Error("cutoffFrequency required for lowpass filter");
+        }
+        return FirFilter.createLowPass(options as any);
+
+      case "highpass":
+        if (!cutoffFrequency) {
+          throw new Error("cutoffFrequency required for highpass filter");
+        }
+        return FirFilter.createHighPass(options as any);
+
+      case "bandpass":
+        if (!lowCutoffFrequency || !highCutoffFrequency) {
+          throw new Error(
+            "lowCutoffFrequency and highCutoffFrequency required for bandpass filter"
+          );
+        }
+        return FirFilter.createBandPass(options as any);
+
+      case "bandstop":
+      case "notch":
+        if (!lowCutoffFrequency || !highCutoffFrequency) {
+          throw new Error(
+            "lowCutoffFrequency and highCutoffFrequency required for bandstop filter"
+          );
+        }
+        return FirFilter.createBandStop(options as any);
+
+      default:
+        throw new Error(`Unsupported FIR filter mode: ${mode}`);
+    }
+  }
+
+  /**
+   * Helper to create Butterworth filter from options
+   */
+  private createButterworthFilter(
+    options: FilterOptions & { type: "butterworth" }
+  ): IirFilter {
+    const { mode, cutoffFrequency, lowCutoffFrequency, highCutoffFrequency } =
+      options;
+
+    switch (mode) {
+      case "lowpass":
+        if (!cutoffFrequency) {
+          throw new Error("cutoffFrequency required for lowpass filter");
+        }
+        return IirFilter.createButterworthLowPass(options as any);
+
+      case "highpass":
+        if (!cutoffFrequency) {
+          throw new Error("cutoffFrequency required for highpass filter");
+        }
+        return IirFilter.createButterworthHighPass(options as any);
+
+      case "bandpass":
+        if (!lowCutoffFrequency || !highCutoffFrequency) {
+          throw new Error(
+            "lowCutoffFrequency and highCutoffFrequency required for bandpass filter"
+          );
+        }
+        return IirFilter.createButterworthBandPass(options as any);
+
+      default:
+        throw new Error(`Unsupported Butterworth filter mode: ${mode}`);
+    }
+  }
+
+  /**
+   * Helper to create Chebyshev filter from options
+   */
+  private createChebyshevFilter(
+    options: FilterOptions & { type: "chebyshev" }
+  ): IirFilter {
+    const {
+      mode,
+      cutoffFrequency,
+      lowCutoffFrequency,
+      highCutoffFrequency,
+      ripple = 0.5,
+    } = options as any;
+
+    switch (mode) {
+      case "lowpass":
+        if (!cutoffFrequency) {
+          throw new Error("cutoffFrequency required for lowpass filter");
+        }
+        return IirFilter.createChebyshevLowPass({
+          cutoffFrequency,
+          sampleRate: options.sampleRate,
+          order: options.order,
+          rippleDb: ripple,
+        });
+
+      case "highpass":
+        if (!cutoffFrequency) {
+          throw new Error("cutoffFrequency required for highpass filter");
+        }
+        return IirFilter.createChebyshevHighPass({
+          cutoffFrequency,
+          sampleRate: options.sampleRate,
+          order: options.order,
+          rippleDb: ripple,
+        });
+
+      case "bandpass":
+        if (!lowCutoffFrequency || !highCutoffFrequency) {
+          throw new Error(
+            "lowCutoffFrequency and highCutoffFrequency required for bandpass filter"
+          );
+        }
+        return IirFilter.createChebyshevBandPass({
+          lowCutoffFrequency,
+          highCutoffFrequency,
+          sampleRate: options.sampleRate,
+          order: options.order,
+          rippleDb: ripple,
+        });
+
+      default:
+        throw new Error(`Unsupported Chebyshev filter mode: ${mode}`);
+    }
+  }
+
+  /**
+   * Helper to create Biquad filter from options
+   */
+  private createBiquadFilter(
+    options: FilterOptions & { type: "biquad" }
+  ): IirFilter {
+    const { mode, cutoffFrequency, q = 0.707, gain = 0 } = options as any;
+    const { sampleRate } = options;
+
+    switch (mode) {
+      case "peak":
+      case "peaking":
+        if (!cutoffFrequency) {
+          throw new Error("cutoffFrequency (center frequency) required");
+        }
+        return IirFilter.createPeakingEQ({
+          centerFrequency: cutoffFrequency,
+          sampleRate,
+          Q: q,
+          gainDb: gain,
+        });
+
+      case "lowshelf":
+        if (!cutoffFrequency) {
+          throw new Error("cutoffFrequency required for low-shelf filter");
+        }
+        return IirFilter.createLowShelf({
+          cutoffFrequency,
+          sampleRate,
+          gainDb: gain,
+          Q: q,
+        });
+
+      case "highshelf":
+        if (!cutoffFrequency) {
+          throw new Error("cutoffFrequency required for high-shelf filter");
+        }
+        return IirFilter.createHighShelf({
+          cutoffFrequency,
+          sampleRate,
+          gainDb: gain,
+          Q: q,
+        });
+
+      case "lowpass":
+        if (!cutoffFrequency) {
+          throw new Error("cutoffFrequency required");
+        }
+        // Use Butterworth for biquad lowpass (2nd order)
+        return IirFilter.createButterworthLowPass({
+          cutoffFrequency,
+          sampleRate,
+          order: 2,
+        });
+
+      case "highpass":
+        if (!cutoffFrequency) {
+          throw new Error("cutoffFrequency required");
+        }
+        // Use Butterworth for biquad highpass (2nd order)
+        return IirFilter.createButterworthHighPass({
+          cutoffFrequency,
+          sampleRate,
+          order: 2,
+        });
+
+      case "bandpass":
+      case "bandstop":
+      case "notch":
+        throw new Error(
+          `Biquad ${mode} filters not yet implemented. Use Butterworth or Chebyshev filters instead.`
+        );
+
+      default:
+        throw new Error(`Unsupported Biquad filter mode: ${mode}`);
+    }
   }
 
   /**

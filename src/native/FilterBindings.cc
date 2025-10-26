@@ -325,6 +325,12 @@ namespace dsp
                                                                     StaticMethod("createButterworthHighPass", &IirFilterWrapper::CreateButterworthHighPass),
                                                                     StaticMethod("createButterworthBandPass", &IirFilterWrapper::CreateButterworthBandPass),
                                                                     StaticMethod("createBiquad", &IirFilterWrapper::CreateBiquad),
+                                                                    StaticMethod("createChebyshevLowPass", &IirFilterWrapper::CreateChebyshevLowPass),
+                                                                    StaticMethod("createChebyshevHighPass", &IirFilterWrapper::CreateChebyshevHighPass),
+                                                                    StaticMethod("createChebyshevBandPass", &IirFilterWrapper::CreateChebyshevBandPass),
+                                                                    StaticMethod("createPeakingEQ", &IirFilterWrapper::CreatePeakingEQ),
+                                                                    StaticMethod("createLowShelf", &IirFilterWrapper::CreateLowShelf),
+                                                                    StaticMethod("createHighShelf", &IirFilterWrapper::CreateHighShelf),
                                                                 });
 
             constructor = Napi::Persistent(func);
@@ -698,6 +704,290 @@ namespace dsp
             }
 
             return constructor.New({bArray, aArray});
+        }
+
+        static Napi::Value CreateChebyshevLowPass(const Napi::CallbackInfo &info)
+        {
+            Napi::Env env = info.Env();
+
+            if (info.Length() < 2)
+            {
+                Napi::TypeError::New(env, "Expected cutoffFreq, order, and optional rippleDb").ThrowAsJavaScriptException();
+                return env.Null();
+            }
+
+            float cutoffFreq = info[0].As<Napi::Number>().FloatValue();
+            int order = info[1].As<Napi::Number>().Int32Value();
+            float rippleDb = 0.5f; // Default ripple
+
+            if (info.Length() >= 3 && info[2].IsNumber())
+            {
+                rippleDb = info[2].As<Napi::Number>().FloatValue();
+            }
+
+            try
+            {
+                auto filter = core::IirFilter<float>::createChebyshevLowPass(cutoffFreq, order, rippleDb);
+
+                auto b_coeffs = filter.getBCoefficients();
+                auto a_coeffs = filter.getACoefficients();
+
+                Napi::Array bArray = Napi::Array::New(env, b_coeffs.size());
+                Napi::Array aArray = Napi::Array::New(env, a_coeffs.size());
+
+                for (size_t i = 0; i < b_coeffs.size(); ++i)
+                {
+                    bArray[i] = Napi::Number::New(env, b_coeffs[i]);
+                }
+
+                for (size_t i = 0; i < a_coeffs.size(); ++i)
+                {
+                    aArray[i] = Napi::Number::New(env, a_coeffs[i]);
+                }
+
+                return constructor.New({bArray, aArray});
+            }
+            catch (const std::exception &e)
+            {
+                Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+                return env.Null();
+            }
+        }
+
+        static Napi::Value CreateChebyshevHighPass(const Napi::CallbackInfo &info)
+        {
+            Napi::Env env = info.Env();
+
+            if (info.Length() < 2)
+            {
+                Napi::TypeError::New(env, "Expected cutoffFreq, order, and optional rippleDb").ThrowAsJavaScriptException();
+                return env.Null();
+            }
+
+            float cutoffFreq = info[0].As<Napi::Number>().FloatValue();
+            int order = info[1].As<Napi::Number>().Int32Value();
+            float rippleDb = 0.5f;
+
+            if (info.Length() >= 3 && info[2].IsNumber())
+            {
+                rippleDb = info[2].As<Napi::Number>().FloatValue();
+            }
+
+            try
+            {
+                auto filter = core::IirFilter<float>::createChebyshevHighPass(cutoffFreq, order, rippleDb);
+
+                auto b_coeffs = filter.getBCoefficients();
+                auto a_coeffs = filter.getACoefficients();
+
+                Napi::Array bArray = Napi::Array::New(env, b_coeffs.size());
+                Napi::Array aArray = Napi::Array::New(env, a_coeffs.size());
+
+                for (size_t i = 0; i < b_coeffs.size(); ++i)
+                {
+                    bArray[i] = Napi::Number::New(env, b_coeffs[i]);
+                }
+
+                for (size_t i = 0; i < a_coeffs.size(); ++i)
+                {
+                    aArray[i] = Napi::Number::New(env, a_coeffs[i]);
+                }
+
+                return constructor.New({bArray, aArray});
+            }
+            catch (const std::exception &e)
+            {
+                Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+                return env.Null();
+            }
+        }
+
+        static Napi::Value CreateChebyshevBandPass(const Napi::CallbackInfo &info)
+        {
+            Napi::Env env = info.Env();
+
+            if (info.Length() < 3)
+            {
+                Napi::TypeError::New(env, "Expected lowCutoff, highCutoff, order, and optional rippleDb").ThrowAsJavaScriptException();
+                return env.Null();
+            }
+
+            float lowCutoff = info[0].As<Napi::Number>().FloatValue();
+            float highCutoff = info[1].As<Napi::Number>().FloatValue();
+            int order = info[2].As<Napi::Number>().Int32Value();
+            float rippleDb = 0.5f;
+
+            if (info.Length() >= 4 && info[3].IsNumber())
+            {
+                rippleDb = info[3].As<Napi::Number>().FloatValue();
+            }
+
+            try
+            {
+                auto filter = core::IirFilter<float>::createChebyshevBandPass(lowCutoff, highCutoff, order, rippleDb);
+
+                auto b_coeffs = filter.getBCoefficients();
+                auto a_coeffs = filter.getACoefficients();
+
+                Napi::Array bArray = Napi::Array::New(env, b_coeffs.size());
+                Napi::Array aArray = Napi::Array::New(env, a_coeffs.size());
+
+                for (size_t i = 0; i < b_coeffs.size(); ++i)
+                {
+                    bArray[i] = Napi::Number::New(env, b_coeffs[i]);
+                }
+
+                for (size_t i = 0; i < a_coeffs.size(); ++i)
+                {
+                    aArray[i] = Napi::Number::New(env, a_coeffs[i]);
+                }
+
+                return constructor.New({bArray, aArray});
+            }
+            catch (const std::exception &e)
+            {
+                Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+                return env.Null();
+            }
+        }
+
+        static Napi::Value CreatePeakingEQ(const Napi::CallbackInfo &info)
+        {
+            Napi::Env env = info.Env();
+
+            if (info.Length() < 3)
+            {
+                Napi::TypeError::New(env, "Expected centerFreq, Q, and gainDb").ThrowAsJavaScriptException();
+                return env.Null();
+            }
+
+            float centerFreq = info[0].As<Napi::Number>().FloatValue();
+            float Q = info[1].As<Napi::Number>().FloatValue();
+            float gainDb = info[2].As<Napi::Number>().FloatValue();
+
+            try
+            {
+                auto filter = core::IirFilter<float>::createPeakingEQ(centerFreq, Q, gainDb);
+
+                auto b_coeffs = filter.getBCoefficients();
+                auto a_coeffs = filter.getACoefficients();
+
+                Napi::Array bArray = Napi::Array::New(env, b_coeffs.size());
+                Napi::Array aArray = Napi::Array::New(env, a_coeffs.size());
+
+                for (size_t i = 0; i < b_coeffs.size(); ++i)
+                {
+                    bArray[i] = Napi::Number::New(env, b_coeffs[i]);
+                }
+
+                for (size_t i = 0; i < a_coeffs.size(); ++i)
+                {
+                    aArray[i] = Napi::Number::New(env, a_coeffs[i]);
+                }
+
+                return constructor.New({bArray, aArray});
+            }
+            catch (const std::exception &e)
+            {
+                Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+                return env.Null();
+            }
+        }
+
+        static Napi::Value CreateLowShelf(const Napi::CallbackInfo &info)
+        {
+            Napi::Env env = info.Env();
+
+            if (info.Length() < 2)
+            {
+                Napi::TypeError::New(env, "Expected cutoffFreq, gainDb, and optional Q").ThrowAsJavaScriptException();
+                return env.Null();
+            }
+
+            float cutoffFreq = info[0].As<Napi::Number>().FloatValue();
+            float gainDb = info[1].As<Napi::Number>().FloatValue();
+            float Q = 0.707f; // Default Q
+
+            if (info.Length() >= 3 && info[2].IsNumber())
+            {
+                Q = info[2].As<Napi::Number>().FloatValue();
+            }
+
+            try
+            {
+                auto filter = core::IirFilter<float>::createLowShelf(cutoffFreq, gainDb, Q);
+
+                auto b_coeffs = filter.getBCoefficients();
+                auto a_coeffs = filter.getACoefficients();
+
+                Napi::Array bArray = Napi::Array::New(env, b_coeffs.size());
+                Napi::Array aArray = Napi::Array::New(env, a_coeffs.size());
+
+                for (size_t i = 0; i < b_coeffs.size(); ++i)
+                {
+                    bArray[i] = Napi::Number::New(env, b_coeffs[i]);
+                }
+
+                for (size_t i = 0; i < a_coeffs.size(); ++i)
+                {
+                    aArray[i] = Napi::Number::New(env, a_coeffs[i]);
+                }
+
+                return constructor.New({bArray, aArray});
+            }
+            catch (const std::exception &e)
+            {
+                Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+                return env.Null();
+            }
+        }
+
+        static Napi::Value CreateHighShelf(const Napi::CallbackInfo &info)
+        {
+            Napi::Env env = info.Env();
+
+            if (info.Length() < 2)
+            {
+                Napi::TypeError::New(env, "Expected cutoffFreq, gainDb, and optional Q").ThrowAsJavaScriptException();
+                return env.Null();
+            }
+
+            float cutoffFreq = info[0].As<Napi::Number>().FloatValue();
+            float gainDb = info[1].As<Napi::Number>().FloatValue();
+            float Q = 0.707f;
+
+            if (info.Length() >= 3 && info[2].IsNumber())
+            {
+                Q = info[2].As<Napi::Number>().FloatValue();
+            }
+
+            try
+            {
+                auto filter = core::IirFilter<float>::createHighShelf(cutoffFreq, gainDb, Q);
+
+                auto b_coeffs = filter.getBCoefficients();
+                auto a_coeffs = filter.getACoefficients();
+
+                Napi::Array bArray = Napi::Array::New(env, b_coeffs.size());
+                Napi::Array aArray = Napi::Array::New(env, a_coeffs.size());
+
+                for (size_t i = 0; i < b_coeffs.size(); ++i)
+                {
+                    bArray[i] = Napi::Number::New(env, b_coeffs[i]);
+                }
+
+                for (size_t i = 0; i < a_coeffs.size(); ++i)
+                {
+                    aArray[i] = Napi::Number::New(env, a_coeffs[i]);
+                }
+
+                return constructor.New({bArray, aArray});
+            }
+            catch (const std::exception &e)
+            {
+                Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+                return env.Null();
+            }
         }
     };
 

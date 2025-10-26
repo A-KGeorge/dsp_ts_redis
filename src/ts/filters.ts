@@ -551,6 +551,214 @@ export class IirFilter {
   }
 
   /**
+   * Create Chebyshev Type I low-pass filter (passband ripple)
+   */
+  static createChebyshevLowPass(options: {
+    cutoffFrequency: number;
+    sampleRate: number;
+    order: number;
+    rippleDb?: number;
+  }): IirFilter {
+    const { cutoffFrequency, sampleRate, order, rippleDb = 0.5 } = options;
+
+    const normalizedCutoff = cutoffFrequency / (sampleRate / 2);
+
+    if (normalizedCutoff <= 0 || normalizedCutoff >= 1) {
+      throw new Error(
+        `Cutoff frequency must be between 0 and ${sampleRate / 2} Hz`
+      );
+    }
+
+    if (order < 1 || order > 8) {
+      throw new Error("Order must be between 1 and 8");
+    }
+
+    if (rippleDb <= 0 || rippleDb > 3) {
+      throw new Error("Ripple must be between 0 and 3 dB");
+    }
+
+    const nativeFilter = DspAddon.IirFilter.createChebyshevLowPass(
+      normalizedCutoff,
+      order,
+      rippleDb
+    );
+    return new IirFilter(nativeFilter);
+  }
+
+  /**
+   * Create Chebyshev Type I high-pass filter (passband ripple)
+   */
+  static createChebyshevHighPass(options: {
+    cutoffFrequency: number;
+    sampleRate: number;
+    order: number;
+    rippleDb?: number;
+  }): IirFilter {
+    const { cutoffFrequency, sampleRate, order, rippleDb = 0.5 } = options;
+
+    const normalizedCutoff = cutoffFrequency / (sampleRate / 2);
+
+    if (normalizedCutoff <= 0 || normalizedCutoff >= 1) {
+      throw new Error(
+        `Cutoff frequency must be between 0 and ${sampleRate / 2} Hz`
+      );
+    }
+
+    if (order < 1 || order > 8) {
+      throw new Error("Order must be between 1 and 8");
+    }
+
+    if (rippleDb <= 0 || rippleDb > 3) {
+      throw new Error("Ripple must be between 0 and 3 dB");
+    }
+
+    const nativeFilter = DspAddon.IirFilter.createChebyshevHighPass(
+      normalizedCutoff,
+      order,
+      rippleDb
+    );
+    return new IirFilter(nativeFilter);
+  }
+
+  /**
+   * Create Chebyshev Type I band-pass filter (passband ripple)
+   */
+  static createChebyshevBandPass(options: {
+    lowCutoffFrequency: number;
+    highCutoffFrequency: number;
+    sampleRate: number;
+    order: number;
+    rippleDb?: number;
+  }): IirFilter {
+    const {
+      lowCutoffFrequency,
+      highCutoffFrequency,
+      sampleRate,
+      order,
+      rippleDb = 0.5,
+    } = options;
+
+    const normalizedLow = lowCutoffFrequency / (sampleRate / 2);
+    const normalizedHigh = highCutoffFrequency / (sampleRate / 2);
+
+    if (
+      normalizedLow <= 0 ||
+      normalizedHigh >= 1 ||
+      normalizedLow >= normalizedHigh
+    ) {
+      throw new Error("Invalid cutoff frequencies");
+    }
+
+    if (order < 1 || order > 8) {
+      throw new Error("Order must be between 1 and 8");
+    }
+
+    const nativeFilter = DspAddon.IirFilter.createChebyshevBandPass(
+      normalizedLow,
+      normalizedHigh,
+      order,
+      rippleDb
+    );
+    return new IirFilter(nativeFilter);
+  }
+
+  /**
+   * Create peaking EQ biquad filter
+   * Useful for parametric EQ, boosting/cutting specific frequencies
+   */
+  static createPeakingEQ(options: {
+    centerFrequency: number;
+    sampleRate: number;
+    Q: number;
+    gainDb: number;
+  }): IirFilter {
+    const { centerFrequency, sampleRate, Q, gainDb } = options;
+
+    const normalizedFreq = centerFrequency / (sampleRate / 2);
+
+    if (normalizedFreq <= 0 || normalizedFreq >= 1) {
+      throw new Error(
+        `Center frequency must be between 0 and ${sampleRate / 2} Hz`
+      );
+    }
+
+    if (Q <= 0) {
+      throw new Error("Q must be positive");
+    }
+
+    const nativeFilter = DspAddon.IirFilter.createPeakingEQ(
+      normalizedFreq,
+      Q,
+      gainDb
+    );
+    return new IirFilter(nativeFilter);
+  }
+
+  /**
+   * Create low-shelf biquad filter
+   * Boosts or cuts all frequencies below cutoff
+   */
+  static createLowShelf(options: {
+    cutoffFrequency: number;
+    sampleRate: number;
+    gainDb: number;
+    Q?: number;
+  }): IirFilter {
+    const { cutoffFrequency, sampleRate, gainDb, Q = 0.707 } = options;
+
+    const normalizedCutoff = cutoffFrequency / (sampleRate / 2);
+
+    if (normalizedCutoff <= 0 || normalizedCutoff >= 1) {
+      throw new Error(
+        `Cutoff frequency must be between 0 and ${sampleRate / 2} Hz`
+      );
+    }
+
+    if (Q <= 0) {
+      throw new Error("Q must be positive");
+    }
+
+    const nativeFilter = DspAddon.IirFilter.createLowShelf(
+      normalizedCutoff,
+      gainDb,
+      Q
+    );
+    return new IirFilter(nativeFilter);
+  }
+
+  /**
+   * Create high-shelf biquad filter
+   * Boosts or cuts all frequencies above cutoff
+   */
+  static createHighShelf(options: {
+    cutoffFrequency: number;
+    sampleRate: number;
+    gainDb: number;
+    Q?: number;
+  }): IirFilter {
+    const { cutoffFrequency, sampleRate, gainDb, Q = 0.707 } = options;
+
+    const normalizedCutoff = cutoffFrequency / (sampleRate / 2);
+
+    if (normalizedCutoff <= 0 || normalizedCutoff >= 1) {
+      throw new Error(
+        `Cutoff frequency must be between 0 and ${sampleRate / 2} Hz`
+      );
+    }
+
+    if (Q <= 0) {
+      throw new Error("Q must be positive");
+    }
+
+    const nativeFilter = DspAddon.IirFilter.createHighShelf(
+      normalizedCutoff,
+      gainDb,
+      Q
+    );
+    return new IirFilter(nativeFilter);
+  }
+
+  /**
    * Process single sample
    */
   async processSample(input: number): Promise<number> {
@@ -641,8 +849,9 @@ export class IirFilter {
  *   order: 101
  * });
  * ```
+ * @internal - Not exposed to users. Use specific filter constructors instead.
  */
-export function createFilter(options: FilterOptions): FirFilter | IirFilter {
+function createFilter(options: FilterOptions): FirFilter | IirFilter {
   const { type, mode } = options;
 
   // FIR Filters
@@ -742,6 +951,84 @@ export function createFilter(options: FilterOptions): FirFilter | IirFilter {
 
       default:
         throw new Error(`Unsupported Butterworth mode: ${mode}`);
+    }
+  }
+
+  // Chebyshev Filters
+  if (type === "chebyshev") {
+    const chebyOpts = options as ChebyshevFilterOptions;
+    const rippleDb = chebyOpts.ripple ?? 0.5;
+
+    switch (mode) {
+      case "lowpass":
+        if (!chebyOpts.cutoffFrequency)
+          throw new Error("cutoffFrequency required");
+        return IirFilter.createChebyshevLowPass({
+          cutoffFrequency: chebyOpts.cutoffFrequency,
+          sampleRate: chebyOpts.sampleRate,
+          order: chebyOpts.order,
+          rippleDb,
+        });
+
+      case "highpass":
+        if (!chebyOpts.cutoffFrequency)
+          throw new Error("cutoffFrequency required");
+        return IirFilter.createChebyshevHighPass({
+          cutoffFrequency: chebyOpts.cutoffFrequency,
+          sampleRate: chebyOpts.sampleRate,
+          order: chebyOpts.order,
+          rippleDb,
+        });
+
+      case "bandpass":
+        if (!chebyOpts.lowCutoffFrequency || !chebyOpts.highCutoffFrequency) {
+          throw new Error(
+            "lowCutoffFrequency and highCutoffFrequency required"
+          );
+        }
+        return IirFilter.createChebyshevBandPass({
+          lowCutoffFrequency: chebyOpts.lowCutoffFrequency,
+          highCutoffFrequency: chebyOpts.highCutoffFrequency,
+          sampleRate: chebyOpts.sampleRate,
+          order: chebyOpts.order,
+          rippleDb,
+        });
+
+      default:
+        throw new Error(`Unsupported Chebyshev mode: ${mode}`);
+    }
+  }
+
+  // Biquad Filters (EQ, Shelf)
+  if (type === "biquad") {
+    const biquadOpts = options as BiquadFilterOptions;
+    const Q = biquadOpts.q ?? 0.707;
+    const gainDb = biquadOpts.gain ?? 0;
+
+    switch (mode) {
+      case "lowpass":
+        // Use Butterworth for biquad lowpass
+        if (!biquadOpts.cutoffFrequency)
+          throw new Error("cutoffFrequency required");
+        return IirFilter.createButterworthLowPass({
+          cutoffFrequency: biquadOpts.cutoffFrequency,
+          sampleRate: biquadOpts.sampleRate,
+          order: 2,
+        });
+
+      case "highpass":
+        if (!biquadOpts.cutoffFrequency)
+          throw new Error("cutoffFrequency required");
+        return IirFilter.createButterworthHighPass({
+          cutoffFrequency: biquadOpts.cutoffFrequency,
+          sampleRate: biquadOpts.sampleRate,
+          order: 2,
+        });
+
+      default:
+        throw new Error(
+          `Unsupported Biquad mode: ${mode}. Use IirFilter.createPeakingEQ/createLowShelf/createHighShelf for EQ/shelf filters.`
+        );
     }
   }
 

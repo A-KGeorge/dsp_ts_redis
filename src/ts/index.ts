@@ -45,7 +45,6 @@ export {
 export {
   FirFilter,
   IirFilter,
-  createFilter,
   type FilterType,
   type FilterMode,
   type FilterOptions,
@@ -55,6 +54,19 @@ export {
   type ChebyshevFilterOptions,
   type BiquadFilterOptions,
 } from "./filters";
+export {
+  calculateHjorthParameters,
+  calculateSpectralCentroid,
+  calculateSpectralRolloff,
+  calculateSpectralFlux,
+  calculateSpectralFeatures,
+  calculateShannonEntropy,
+  calculateSampleEntropy,
+  calculateApproximateEntropy,
+  HjorthTracker,
+  SpectralFeaturesTracker,
+  EntropyTracker,
+} from "./advanced-dsp";
 export { egg } from "./easter-egg";
 export type {
   DriftStatistics,
@@ -85,6 +97,18 @@ export type {
   TapCallback,
   PipelineStateSummary,
   StageSummary,
+
+  // Advanced DSP types
+  HjorthParameters,
+  HjorthParams,
+  SpectralFeatures,
+  SpectralFeaturesParams,
+  EntropyParams,
+  SampleEntropyParams,
+  ApproximateEntropyParams,
+  DecimateParams,
+  InterpolateParams,
+  ResampleParams,
 } from "./types";
 export type {
   RouteHandler,
