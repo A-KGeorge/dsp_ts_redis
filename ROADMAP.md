@@ -4,6 +4,18 @@ This roadmap outlines the planned evolution of **dsp-ts-redis** — a native **C
 
 ---
 
+## 🚀 Immediate Next Steps
+
+**Resampling Operations** (Expected in next few days):
+
+- `Decimate`: Downsample by integer factor M with anti-aliasing filter
+- `Interpolate`: Upsample by integer factor L with anti-imaging filter
+- `Resample`: Rational resampling (L/M) for arbitrary sample rate conversion
+
+All three will use efficient polyphase FIR filtering implemented in C++ for maximum performance, with full TypeScript wrappers and comprehensive test coverage.
+
+---
+
 ## ✅ Current Progress
 
 - [x] **Redis Integration (Serialization / Deserialization)**
@@ -24,7 +36,7 @@ This roadmap outlines the planned evolution of **dsp-ts-redis** — a native **C
 | 🧠 **Statistical / Entropy Features** | ✅ `hjorthParameters`, ✅ `entropy`, ✅ `sampleEntropy`, ✅ `approximateEntropy`, ☐ `kurtosis`, ☐ `skewness`                                                                                          | Shape and complexity features                       | Aggregates per window            | 🟡 Medium                     |
 | 🔉 **Spectral / Transform Domain**    | ✅ `fft`, ✅ `rfft`, ✅ `ifft`, ✅ `irfft`, ✅ `spectralCentroid`, ✅ `spectralRolloff`, ✅ `spectralFlux`, ☐ `hilbertTransform`, ☐ `waveletTransform`, ☐ `stft`, ☐ `melSpectrogram`, ☐ `mfcc`        | Frequency and time-frequency analysis               | Optional (RedisJSON possible)    | 🔴 Hard                       |
 | 🎛 **Filtering (Classic + Modern)**    | ✅ `firFilter`, ✅ `iirFilter`, ✅ `butterworthLowpass/Highpass/Bandpass`, ✅ `chebyshevLowpass/Highpass/Bandpass`, ✅ `peakingEQ`, ✅ `lowShelf`, ✅ `highShelf`, ☐ `kalmanFilter`, ☐ `wienerFilter` | Filtering for sensor / audio data                   | Coefficients / state storage     | 🔴 Hard                       |
-| ⏱ **Resampling / Rate Control**       | ☐ `polyphaseDecimate`, ☐ `interpolate`, ☐ `resample`                                                                                                                                                  | Resampling and alias mitigation                     | Redis phase/delay tracking       | 🟡 Medium                     |
+| ⏱ **Resampling / Rate Control**       | 🚀 `polyphaseDecimate`, 🚀 `interpolate`, 🚀 `resample`                                                                                                                                               | Resampling and alias mitigation                     | Redis phase/delay tracking       | 🟡 Medium                     |
 | 🔊 **Fundamental Frequency**          | ☐ `yin`, ☐ `cepstrumPitch`                                                                                                                                                                            | Pitch / F₀ estimation for audio or tremor detection | Difference function buffers      | 🔴 Hard                       |
 | 🪞 **Feature Extraction (Spectral)**  | ✅ `spectralCentroid`, ✅ `spectralRolloff`, ✅ `spectralFlux`, ☐ `spectralFlatness`, ☐ `mfcc`                                                                                                        | Audio / signal features for ML                      | Aggregates + filterbank storage  | 🟡 Medium                     |
 | 🧬 **Adaptive Filters**               | ☐ `lmsFilter`, ☐ `nlmsFilter`, ☐ `rls`, ☐ `wienerFilter`, ☐ `pca`, ☐ `ica`, ☐ `whiten`                                                                                                                | Adaptive denoising + decorrelation                  | Redis holds coefficients         | 🔴 Hard                       |
@@ -51,12 +63,20 @@ This roadmap outlines the planned evolution of **dsp-ts-redis** — a native **C
 
 ### 🟨 **Stage 2 — Intermediate (Math + Buffer Dependent)**
 
-| Priority | Category                                              | Status | Notes                                |
-| -------- | ----------------------------------------------------- | ------ | ------------------------------------ |
-| 4️⃣       | `zScoreNormalize`, `mav`, `hjorthParameters`          | [X]    | Window math & standard deviation ops |
-| 5️⃣       | `polyphaseDecimate`, `interpolate`, `resample`        | [ ]    | Leverage circular buffers            |
-| 6️⃣       | `spectralCentroid`, `spectralRolloff`, `spectralFlux` | [X]    | Derived FFT metrics                  |
-| 7️⃣       | `entropy`, `sampleEntropy`, `approximateEntropy`      | [X]    | Complexity metrics per window        |
+| Priority | Category                                              | Status          | Notes                                |
+| -------- | ----------------------------------------------------- | --------------- | ------------------------------------ |
+| 4️⃣       | `zScoreNormalize`, `mav`, `hjorthParameters`          | [X]             | Window math & standard deviation ops |
+| 5️⃣       | `polyphaseDecimate`, `interpolate`, `resample`        | [🚀 Coming Now] | **Expected in next few days**        |
+| 6️⃣       | `spectralCentroid`, `spectralRolloff`, `spectralFlux` | [X]             | Derived FFT metrics                  |
+| 7️⃣       | `entropy`, `sampleEntropy`, `approximateEntropy`      | [X]             | Complexity metrics per window        |
+
+**🚀 Resampling Implementation Plan:**
+
+- C++ polyphase FIR decimator with anti-aliasing
+- C++ polyphase FIR interpolator with anti-imaging
+- C++ rational resampler (L/M) combining both
+- Full N-API bindings and TypeScript wrappers
+- Comprehensive test coverage for correctness and edge cases
 
 ---
 

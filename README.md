@@ -1254,13 +1254,19 @@ const activityLevel = await activityPipeline.process(multiChannelData, {
 - **Bounded**: Max WAMP = window_size - 1 (all samples exceed threshold)
 - **Threshold-dependent**: WAMP decreases as threshold increases
 
-#### 🚧 Coming Soon
+#### 🚧 Coming Very Soon
 
-The following filters are planned for future releases:
+**Resampling Operations** (Expected in next few days):
 
-- **IIR/FIR Filters**: Butterworth, Chebyshev, notch filters
-- **Transform Domain**: FFT, STFT, Hilbert transform
-- **Feature Extraction**: Zero-crossing rate, peak detection
+- **`Decimate`**: Downsample by integer factor M with anti-aliasing filter
+- **`Interpolate`**: Upsample by integer factor L with anti-imaging filter
+- **`Resample`**: Rational resampling (L/M) for arbitrary rate conversion
+- All implemented with efficient polyphase FIR filtering in C++
+
+**Other Planned Features:**
+
+- **Transform Domain**: STFT, Hilbert transform, wavelet transforms
+- **Feature Extraction**: Zero-crossing rate, peak detection, autocorrelation
 
 See the [project roadmap](./ROADMAP.md) for more details.
 

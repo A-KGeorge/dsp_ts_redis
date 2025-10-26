@@ -6,8 +6,9 @@
  * - Spectral Features (Centroid, Rolloff, Flux)
  * - Entropy Measures (Shannon, Sample Entropy, Approximate Entropy)
  *
- * Resampling operations (decimate, interpolate, resample) will be implemented
- * in C++ due to their dependency on efficient FIR filtering.
+ * Note: Resampling operations (decimate, interpolate, resample) are being
+ * implemented in C++ with polyphase FIR filtering for maximum efficiency.
+ * Expected release: within next few days.
  */
 
 import type {
