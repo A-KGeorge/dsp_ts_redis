@@ -1774,7 +1774,7 @@ Interested in collaborating? Open an issue!
 
 ### Testing
 
-All 281 tests pass after these fixes. Run `npm test` to verify.
+All 441 tests pass after these fixes. Run `npm test` to verify.
 
 ---
 
