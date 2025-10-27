@@ -339,7 +339,7 @@ const output = await pipeline.process(input, {
 | Batched callbacks                | 3.2M samples/sec | ✅ **Recommended** for production |
 | Individual callbacks             | 6.1M samples/sec | ⚠️ Development/debugging only     |
 
-**SIMD Acceleration:** Batch operations and rectification are 2-8x faster with AVX2/SSE2/NEON. See [SIMD_OPTIMIZATIONS.md](docs/SIMD_OPTIMIZATIONS.md) for details.
+**SIMD Acceleration:** Batch operations and rectification are 2-8x faster with AVX2/SSE2/NEON. See [SIMD_OPTIMIZATIONS.md](https://github.com/A-KGeorge/dsp_ts_redis/blob/main/docs/SIMD_OPTIMIZATIONS.md) for details.
 
 **Recommendation:** Use batched callbacks in production. Individual callbacks benchmark faster but block the Node.js event loop and can't integrate with real telemetry systems (Kafka, Datadog, Loki).
 
@@ -399,7 +399,7 @@ const smoothed = await pipeline.process(samples, timestamps, { channels: 1 });
 console.log(smoothed); // Time-aware smoothing
 ```
 
-**📚 [Complete Time-Series Guide →](./docs/time-series-guide.md)**
+**📚 [Complete Time-Series Guide →](https://github.com/A-KGeorge/dsp_ts_redis/blob/main/docs/time-series-guide.md)**
 
 ### Processing Without Modifying Input
 
@@ -513,7 +513,7 @@ await pipeline.process(samples: Float32Array, options: {
 });
 ```
 
-**See [Time-Series Guide](./docs/time-series-guide.md) for detailed examples.**
+**See [Time-Series Guide](https://github.com/A-KGeorge/dsp_ts_redis/blob/main/docs/time-series-guide.md) for detailed examples.**
 
 ### Available Filters
 
@@ -1268,7 +1268,7 @@ const activityLevel = await activityPipeline.process(multiChannelData, {
 - **Transform Domain**: STFT, Hilbert transform, wavelet transforms
 - **Feature Extraction**: Zero-crossing rate, peak detection, autocorrelation
 
-See the [project roadmap](./ROADMAP.md) for more details.
+See the [project roadmap](https://github.com/A-KGeorge/dsp_ts_redis/blob/main/ROADMAP.md) for more details.
 
 ---
 
@@ -1302,7 +1302,7 @@ const pipeline = createDspPipeline()
   .Rms({ windowSize: 5 });
 ```
 
-**📚 [Full Advanced Features Documentation](./docs/advanced.md)**
+**📚 [Full Advanced Features Documentation](https://github.com/A-KGeorge/dsp_ts_redis/blob/main/docs/advanced.md)**
 
 Key highlights:
 
@@ -1456,7 +1456,7 @@ const smoothed = await pipeline.process(samples, timestamps, { channels: 1 });
 // Properly handles irregular sampling intervals!
 ```
 
-**📚 [More Time-Series Examples →](./docs/time-series-guide.md#real-world-examples)**
+**📚 [More Time-Series Examples →](https://github.com/A-KGeorge/dsp_ts_redis/blob/main/docs/time-series-guide.md#real-world-examples)**
 
 ### Streaming Data with Crash Recovery
 
