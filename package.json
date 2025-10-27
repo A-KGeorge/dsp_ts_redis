@@ -1,6 +1,6 @@
 {
   "name": "dspx",
-  "version": "0.1.1-alpha.0",
+  "version": "0.2.0-alpha.0",
   "description": "High-performance DSP library with native C++ acceleration and Redis state persistence",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -19,7 +19,9 @@
     "prebuildify": "prebuildify --napi --strip --target 18.0.0 --target 20.0.0 --target 22.0.0"
   },
   "binary": {
-    "napi_versions": [8]
+    "napi_versions": [
+      8
+    ]
   },
   "keywords": [
     "dsp",
