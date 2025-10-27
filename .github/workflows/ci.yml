@@ -150,7 +150,7 @@ jobs:
         run: npm install
 
       - name: Build prebuilds
-        run: npm run prebuild
+        run: npm run prebuildify
 
       - name: Upload prebuilds
         uses: actions/upload-artifact@v4
