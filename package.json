@@ -1,12 +1,31 @@
 {
   "name": "dspx",
-  "version": "0.1.1-alpha.0",
+  "version": "0.1.1-alpha.1",
   "description": "High-performance DSP library with native C++ acceleration and Redis state persistence",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src/build",
+    "binding.gyp",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
-    "test": "node scripts/test.js",
-    "build": "node-gyp rebuild && node -e \"const fs = require('fs'); fs.cpSync('build/Release/dspx.node', 'src/build/dspx.node', {force: true}); console.log('Copied build/Release/dspx.node to src/build/dspx.node');\"",
-    "prebuildify": "prebuildify --napi --strip --target 18.0.0 --target 20.0.0 --target 22.0.0"
+    "clean": "node -e \"import('fs').then(fs => fs.rmSync('dist', { recursive: true, force: true }))\"",
+    "build:types": "tsc --declaration --emitDeclarationOnly --outDir dist",
+    "build:js": "tsc --outDir dist",
+    "build": "npm run build:types && npm run build:js && node-gyp rebuild && node scripts/copy-native.js",
+    "prepare": "npm run build",
+    "semantic-release": "semantic-release",
+    "test": "cross-env NODE_ENV=test jest",
+    "prebuildify": "cross-env prebuildify --napi --strip --target 18.0.0 --target 20.0.0 --target 22.0.0"
   },
   "binary": {
     "napi_versions": [
@@ -26,6 +45,7 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
+    "cross-env": "^7.0.3",
     "node-addon-api": "^8.5.0",
     "node-gyp-build": "^4.8.0"
   },
@@ -36,7 +56,9 @@
     "jest": "^30.2.0",
     "prebuildify": "^6.0.1",
     "redis": "^5.9.0",
+    "semantic-release": "^25.0.1",
     "ts-jest": "^29.4.5",
-    "tsx": "^4.20.6"
+    "tsx": "^4.20.6",
+    "typescript": "^5.6.3"
   }
 }
