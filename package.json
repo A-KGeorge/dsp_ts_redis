@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "node scripts/test.js",
-    "build": "node-gyp rebuild && node -e \"require('fs').cpSync('build/Release/dsp-ts-redis.node', 'src/build/dsp-ts-redis.node', {force:true}); console.log(`Copied build/Release/dsp-ts-redis.node to src/build/dsp-ts-redis.node`);\"",
-    "prebuildify": "prebuildify --napi --strip"
+    "build": "node-gyp rebuild && node -e \"const fs = require('fs'); fs.cpSync('build/Release/dsp-ts-redis.node', 'src/build/dsp-ts-redis.node', {force: true}); console.log('Copied build/Release/dsp-ts-redis.node to src/build/dsp-ts-redis.node');\"",
+    "prebuildify": "prebuildify --napi --strip --target 18.0.0 --target 20.0.0 --target 22.0.0"
   },
   "binary": {
     "napi_versions": [
