@@ -168,6 +168,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test-ubuntu, test-other, prebuild] # Wait for all CI jobs
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' # Only on main branch pushes
+    permissions: # Add this block
+      contents: write # Allows pushing tags and commits
+      issues: write # Allows closing issues via releases
+      pull-requests: write # Allows updating PRs if needed
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
