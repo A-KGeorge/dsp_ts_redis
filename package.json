@@ -18,6 +18,15 @@
     "build": "npm run build:native && npm run build:ts",
     "prebuildify": "prebuildify --napi --strip --target 18.0.0 --target 20.0.0 --target 22.0.0"
   },
+  "release": {
+    "branches": [
+      {
+        "name": "main",
+        "channel": "alpha",
+        "prerelease": "alpha"
+      }
+    ]
+  },
   "binary": {
     "napi_versions": [
       8
