@@ -3,7 +3,7 @@
 ## Installation
 
 ```typescript
-import { Logger, createConsoleHandler, createLokiHandler } from "dsp-ts-redis";
+import { Logger, createConsoleHandler, createLokiHandler } from "dspx";
 ```
 
 ---

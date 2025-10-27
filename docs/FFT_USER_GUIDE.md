@@ -117,7 +117,7 @@ Error: FFT requires power-of-2 size. Use DFT for arbitrary sizes.
 ### Performance Comparison
 
 ```typescript
-import { FftProcessor, FftUtils } from "dsp-ts-redis";
+import { FftProcessor, FftUtils } from "dspx";
 
 // Benchmark: 1024-point transform
 const N = 1024;
@@ -152,7 +152,7 @@ DFT: 52.3ms
 The easiest and fastest approach is to zero-pad your signal to the next power of 2:
 
 ```typescript
-import { FftProcessor, FftUtils } from "dsp-ts-redis";
+import { FftProcessor, FftUtils } from "dspx";
 
 // Your signal has arbitrary length
 const signal = new Float32Array(1000); // Not power of 2!
@@ -228,7 +228,7 @@ This discontinuity creates **spurious high-frequency components** that "leak" in
 **Window functions** taper the signal to zero at the edges, eliminating boundary discontinuities:
 
 ```typescript
-import { MovingFftProcessor } from "dsp-ts-redis";
+import { MovingFftProcessor } from "dspx";
 
 // No windowing (rectangular window)
 const noWindow = new MovingFftProcessor({
@@ -278,7 +278,7 @@ const blackmanWindow = new MovingFftProcessor({
 ### Example: Audio Spectral Analysis
 
 ```typescript
-import { MovingFftProcessor } from "dsp-ts-redis";
+import { MovingFftProcessor } from "dspx";
 
 // Audio spectrogram with Hann windowing
 const audioFFT = new MovingFftProcessor({
@@ -309,7 +309,7 @@ audioFFT.addSamples(audioBuffer, (spectrum, size) => {
 ### 1. Audio Frequency Analysis
 
 ```typescript
-import { FftProcessor, FftUtils } from "dsp-ts-redis";
+import { FftProcessor, FftUtils } from "dspx";
 
 const sampleRate = 44100; // 44.1 kHz
 const fftSize = 4096;
@@ -334,7 +334,7 @@ console.log(`Dominant frequency: ${peakFreq.toFixed(2)} Hz`);
 ### 2. Vibration Analysis with Windowing
 
 ```typescript
-import { MovingFftProcessor, FftUtils } from "dsp-ts-redis";
+import { MovingFftProcessor, FftUtils } from "dspx";
 
 const sampleRate = 10000; // 10 kHz
 const movingFft = new MovingFftProcessor({
@@ -360,7 +360,7 @@ movingFft.addSamples(vibrationData, (spectrum, size) => {
 ### 3. Non-Power-of-2 Signal Processing
 
 ```typescript
-import { FftProcessor, FftUtils } from "dsp-ts-redis";
+import { FftProcessor, FftUtils } from "dspx";
 
 // Received 1500 samples (not power of 2)
 const rawSignal = new Float32Array(1500);
@@ -378,7 +378,7 @@ const dftSpectrum = dftProc.rdft(rawSignal); // Exact but slow
 ### 4. Real-Time Spectrogram
 
 ```typescript
-import { MovingFftProcessor, FftUtils } from "dsp-ts-redis";
+import { MovingFftProcessor, FftUtils } from "dspx";
 
 const spectrogram: Float32Array[] = [];
 

@@ -18,7 +18,7 @@ The DSP library supports **time-series processing** with explicit timestamps, en
 ### Legacy Sample-Based (Still Works!)
 
 ```typescript
-import { createDspPipeline } from "dsp-ts-redis";
+import { createDspPipeline } from "dspx";
 
 const pipeline = createDspPipeline();
 pipeline.MovingAverage({ mode: "moving", windowSize: 100 });
@@ -35,7 +35,7 @@ await pipeline.process(samples, {
 ### New Time-Based Processing
 
 ```typescript
-import { createDspPipeline } from "dsp-ts-redis";
+import { createDspPipeline } from "dspx";
 
 const pipeline = createDspPipeline();
 // Use time-based window instead of sample count
@@ -279,7 +279,7 @@ await pipeline.process(samples, timestamps, { channels: 2 });
 ### IoT Sensor with Network Jitter
 
 ```typescript
-import { createDspPipeline } from "dsp-ts-redis";
+import { createDspPipeline } from "dspx";
 
 const pipeline = createDspPipeline();
 pipeline.MovingAverage({ mode: "moving", windowDuration: 10000 }); // 10 second window
@@ -360,7 +360,7 @@ const processed = await pipeline.process(emgSignal, timestamps, {
 Time-series processing works seamlessly with Redis state persistence:
 
 ```typescript
-import { createDspPipeline } from "dsp-ts-redis";
+import { createDspPipeline } from "dspx";
 import { createClient } from "redis";
 
 const redis = createClient();
@@ -608,7 +608,7 @@ Use `windowSize` when you want a fixed number of samples. Use `windowDuration` w
 
 ## Need Help?
 
-- **GitHub Issues:** [Report bugs or request features](https://github.com/A-KGeorge/dsp-ts-redis/issues)
+- **GitHub Issues:** [Report bugs or request features](https://github.com/A-KGeorge/dspx/issues)
 - **Documentation:** Check `docs/` folder for additional guides
 - **Examples:** See `src/ts/examples/` for working code samples
 

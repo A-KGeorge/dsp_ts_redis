@@ -14,7 +14,7 @@ This document describes the design for integrating filter stages into the DSP pi
 **Standalone Filter Usage**:
 
 ```typescript
-import { IirFilter, createDspPipeline } from "dsp-ts-redis";
+import { IirFilter, createDspPipeline } from "dspx";
 
 // Create filters
 const filter = IirFilter.createButterworthLowPass({
@@ -66,7 +66,7 @@ The `.filter()` method exists in `DspProcessor` but throws an informative error 
 The goal is to enable this seamless chaining:
 
 ```typescript
-import { createDspPipeline } from "dsp-ts-redis";
+import { createDspPipeline } from "dspx";
 
 const pipeline = createDspPipeline()
   // Standard DSP stages
@@ -286,7 +286,7 @@ Create comprehensive tests for pipeline filter integration.
 Until pipeline integration is complete, use this pattern:
 
 ```typescript
-import { IirFilter, createDspPipeline } from "dsp-ts-redis";
+import { IirFilter, createDspPipeline } from "dspx";
 
 // Create standalone filters
 const lpFilter = IirFilter.createButterworthLowPass({

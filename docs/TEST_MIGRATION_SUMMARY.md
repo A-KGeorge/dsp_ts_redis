@@ -72,7 +72,7 @@ See `docs/PIPELINE_FILTER_INTEGRATION.md` for complete implementation plan.
 Until pipeline integration is complete, use this pattern:
 
 ```typescript
-import { IirFilter, createDspPipeline } from "dsp-ts-redis";
+import { IirFilter, createDspPipeline } from "dspx";
 
 // Create filters
 const filter = IirFilter.createButterworthLowPass({

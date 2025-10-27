@@ -131,7 +131,7 @@ a2 = (A+1) + (A-1)*cos(omega) - beta*sin(omega)
 ### TypeScript API
 
 ```typescript
-import { IirFilter } from "dsp-ts-redis";
+import { IirFilter } from "dspx";
 
 // Chebyshev low-pass (sharp rolloff at 1000 Hz)
 const cheby = IirFilter.createChebyshevLowPass({
@@ -173,7 +173,7 @@ const output = cheby.process(inputSamples);
 All filters also accessible via `createFilter()`:
 
 ```typescript
-import { createFilter } from "dsp-ts-redis";
+import { createFilter } from "dspx";
 
 const cheby = createFilter({
   type: "chebyshev-lowpass",

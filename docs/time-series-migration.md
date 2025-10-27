@@ -1,6 +1,6 @@
 # Time-Series Migration Plan
 
-**Goal:** Transform dsp-ts-redis from a sample-based processor to a time-aware time-series processor.
+**Goal:** Transform dspx from a sample-based processor to a time-aware time-series processor.
 
 ---
 

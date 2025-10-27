@@ -1,11 +1,11 @@
 {
-  "name": "dsp-ts-redis",
+  "name": "dspx",
   "version": "0.1.1-alpha.0",
   "description": "High-performance DSP library with native C++ acceleration and Redis state persistence",
   "main": "index.js",
   "scripts": {
     "test": "node scripts/test.js",
-    "build": "node-gyp rebuild && node -e \"const fs = require('fs'); fs.cpSync('build/Release/dsp-ts-redis.node', 'src/build/dsp-ts-redis.node', {force: true}); console.log('Copied build/Release/dsp-ts-redis.node to src/build/dsp-ts-redis.node');\"",
+    "build": "node-gyp rebuild && node -e \"const fs = require('fs'); fs.cpSync('build/Release/dspx.node', 'src/build/dspx.node', {force: true}); console.log('Copied build/Release/dspx.node to src/build/dspx.node');\"",
     "prebuildify": "prebuildify --napi --strip --target 18.0.0 --target 20.0.0 --target 22.0.0"
   },
   "binary": {

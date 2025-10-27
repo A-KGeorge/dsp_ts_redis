@@ -139,7 +139,7 @@ const concurrencyLimiter = new ConcurrencyLimiter(5);
 **Solution**: Added schema version to all payloads:
 
 ```typescript
-const SCHEMA_VERSION = "dsp-ts-redis/log/v1";
+const SCHEMA_VERSION = "dspx/log/v1";
 
 // All handlers now include:
 {
@@ -326,7 +326,7 @@ Created comprehensive test suite: **`Logger.test.ts`**
 ### Example 1: Basic Console Logging
 
 ```typescript
-import { Logger, createConsoleHandler } from "dsp-ts-redis";
+import { Logger, createConsoleHandler } from "dspx";
 
 const logger = new Logger([createConsoleHandler()]);
 

@@ -34,7 +34,7 @@ export function egg(): void {
                       ████░░░░░░░░████                      
                           ████████                          
 
-    dsp-ts-redis - Digital Signal Processing for TypeScript
+    dspx - Digital Signal Processing for TypeScript
     You found the Easter egg!
   `;
 

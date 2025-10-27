@@ -1,7 +1,7 @@
 {
   "targets": [
     {
-      "target_name": "dsp-ts-redis",
+      "target_name": "dspx",
       "sources": [
         "src/native/DspPipeline.cc",
         "src/native/core/MovingAbsoluteValueFilter.cc",

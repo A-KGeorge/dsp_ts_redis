@@ -485,7 +485,7 @@ import {
   createPagerDutyHandler,
   SEVERITY_MAPPINGS,
   withTracingContext,
-} from "dsp-ts-redis";
+} from "dspx";
 
 // Create logger with all features
 const logger = new Logger(

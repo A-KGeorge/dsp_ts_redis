@@ -155,7 +155,7 @@ export interface HandlerWithFlush {
 /**
  * Schema version for log payloads
  */
-const SCHEMA_VERSION = "dsp-ts-redis/log/v1";
+const SCHEMA_VERSION = "dspx/log/v1";
 
 /**
  * Normalize timestamps for different observability systems

@@ -21,8 +21,8 @@ Configure callbacks for monitoring, alerting, and observability. The library sup
 ### Basic Usage
 
 ```typescript
-import { createDspPipeline } from "dsp-ts-redis";
-import type { PipelineCallbacks } from "dsp-ts-redis";
+import { createDspPipeline } from "dspx";
+import type { PipelineCallbacks } from "dspx";
 
 const callbacks: PipelineCallbacks = {
   // Monitor individual samples (use sparingly - can impact performance)
@@ -264,7 +264,7 @@ The `TopicRouter` provides **production-grade fan-out routing** to multiple obse
 ### Builder Pattern (Recommended)
 
 ```typescript
-import { createDspPipeline, createTopicRouter } from "dsp-ts-redis";
+import { createDspPipeline, createTopicRouter } from "dspx";
 
 const router = createTopicRouter()
   // Critical errors → PagerDuty
@@ -380,8 +380,8 @@ Logs without an explicit priority default to **priority 1**.
 ### Basic Priority Filtering
 
 ```typescript
-import { createDspPipeline, createTopicRouter } from "dsp-ts-redis";
-import type { LogPriority } from "dsp-ts-redis";
+import { createDspPipeline, createTopicRouter } from "dspx";
+import type { LogPriority } from "dspx";
 
 // Route only high-priority logs (priority >= 7) to alerting
 const router = createTopicRouter()
@@ -406,7 +406,7 @@ pipeline
 ### Custom Priority Assignment
 
 ```typescript
-import type { LogEntry, LogPriority } from "dsp-ts-redis";
+import type { LogEntry, LogPriority } from "dspx";
 
 // Assign custom priorities in your backend handlers
 const router = createTopicRouter()

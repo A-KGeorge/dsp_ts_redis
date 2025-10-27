@@ -210,7 +210,7 @@ All cutoff frequencies are **normalized** (0 to 0.5):
 ### JavaScript/Node.js (Direct Native Bindings)
 
 ```javascript
-const dsp = require("./build/Release/dsp-ts-redis.node");
+const dsp = require("./build/Release/dspx.node");
 
 // FIR low-pass filter: 200 Hz cutoff at 1000 Hz sample rate
 const firLP = dsp.FirFilter.createLowPass(0.2, 51, "hamming");

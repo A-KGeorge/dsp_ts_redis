@@ -36,10 +36,10 @@ const require = createRequire(import.meta.url);
 // Try multiple paths to find the native module
 let DspAddon: any;
 const possiblePaths = [
-  join(__dirname, "../build/dsp-ts-redis.node"),
-  join(__dirname, "../../build/Release/dsp-ts-redis.node"),
-  join(process.cwd(), "build/Release/dsp-ts-redis.node"),
-  join(process.cwd(), "src/build/dsp-ts-redis.node"),
+  join(__dirname, "../build/dspx.node"),
+  join(__dirname, "../../build/Release/dspx.node"),
+  join(process.cwd(), "build/Release/dspx.node"),
+  join(process.cwd(), "src/build/dspx.node"),
 ];
 
 const errors: Array<{ path: string; error: string }> = [];

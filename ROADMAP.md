@@ -1,6 +1,6 @@
-# 🧭 DSP-TS-REDIS Roadmap
+# 🧭 dspx Roadmap
 
-This roadmap outlines the planned evolution of **dsp-ts-redis** — a native **C++ + TypeScript DSP** framework featuring **Redis-based state persistence** and **low-overhead logging**.
+This roadmap outlines the planned evolution of **dspx** — a native **C++ + TypeScript DSP** framework featuring **Redis-based state persistence** and **low-overhead logging**.
 
 ---
 
@@ -135,7 +135,7 @@ All three will use efficient polyphase FIR filtering implemented in C++ for maxi
 ## 📁 3. Suggested Project Structure
 
 ```
-dsp-ts-redis/
+dspx/
 ├── src/
 │   ├── native/
 │   │   ├── core/

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the SIMD (Single Instruction, Multiple Data) optimizations implemented in dsp-ts-redis to accelerate DSP operations.
+This document describes the SIMD (Single Instruction, Multiple Data) optimizations implemented in dspx to accelerate DSP operations.
 
 ## What Was Optimized
 

@@ -4,7 +4,7 @@
 > Once Phases 1 and 2 (core DSP + FFT/IIR/FIR) are stable, I’ll push the first npm release.  
 > Expect breaking changes until then!
 
-# dsp-ts-redis
+# dspx
 
 > **A high-performance DSP library with a built-in micro-framework for real-time pipelines, state persistence, and time-series signal processing. Powered by C++ (via N-API) and Redis for cross-session continuity — ideal for biosignals, IoT, and edge analytics.**
 
@@ -301,7 +301,7 @@ const output = await pipeline.process(input, {
 
 ## 📊 Comparison with Alternatives
 
-| Feature            | dsp-ts-redis      | scipy/numpy         | dsp.js     | Web Audio API   |
+| Feature            | dspx              | scipy/numpy         | dsp.js     | Web Audio API   |
 | ------------------ | ----------------- | ------------------- | ---------- | --------------- |
 | TypeScript Support | ✅ Native         | ❌ Python-only      | ⚠️ Partial | ✅ Browser-only |
 | Performance        | ⚡⚡⚡ Native C++ | ⚡⚡⚡⚡            | ⚡ Pure JS | ⚡⚡⚡          |
@@ -348,7 +348,7 @@ const output = await pipeline.process(input, {
 ## 📦 Installation
 
 ```bash
-npm install dsp-ts-redis redis
+npm install dspx redis
 ```
 
 **Note:** You'll need a C++ compiler if prebuilt binaries aren't available for your platform:
@@ -364,7 +364,7 @@ npm install dsp-ts-redis redis
 ### Basic Usage (Sample-Based)
 
 ```typescript
-import { createDspPipeline } from "dsp-ts-redis";
+import { createDspPipeline } from "dspx";
 
 // Create a processing pipeline
 const pipeline = createDspPipeline();
@@ -385,7 +385,7 @@ console.log(output); // Smoothed signal
 ### NEW: Time-Series Processing with Timestamps
 
 ```typescript
-import { createDspPipeline } from "dsp-ts-redis";
+import { createDspPipeline } from "dspx";
 
 // Create a pipeline with time-based window
 const pipeline = createDspPipeline();
@@ -418,7 +418,7 @@ console.log(output); // [1, 1.5, 2, 3, 4] - smoothed
 ### With Redis State Persistence
 
 ```typescript
-import { createDspPipeline } from "dsp-ts-redis";
+import { createDspPipeline } from "dspx";
 import { createClient } from "redis";
 
 const redis = await createClient({ url: "redis://localhost:6379" }).connect();
@@ -456,7 +456,7 @@ pipeline.clearState();
 ### Multi-Channel Processing
 
 ```typescript
-import { createDspPipeline } from "dsp-ts-redis";
+import { createDspPipeline } from "dspx";
 
 const pipeline = createDspPipeline();
 pipeline.MovingAverage({ windowSize: 50 });
@@ -480,7 +480,7 @@ const output = await pipeline.process(fourChannelData, {
 ### Creating a Pipeline
 
 ```typescript
-import { createDspPipeline, type RedisConfig } from "dsp-ts-redis";
+import { createDspPipeline, type RedisConfig } from "dspx";
 
 interface RedisConfig {
   redisHost?: string;   // Redis server hostname (optional)
@@ -1287,7 +1287,7 @@ For production deployments, the library provides comprehensive observability and
 ### Quick Example
 
 ```typescript
-import { createDspPipeline, createTopicRouter } from "dsp-ts-redis";
+import { createDspPipeline, createTopicRouter } from "dspx";
 
 // Production-grade routing to multiple backends
 const router = createTopicRouter()
@@ -1436,7 +1436,7 @@ console.log(summary);
 ### NEW: IoT Sensor Processing with Irregular Timestamps
 
 ```typescript
-import { createDspPipeline } from "dsp-ts-redis";
+import { createDspPipeline } from "dspx";
 
 const pipeline = createDspPipeline();
 pipeline.MovingAverage({ mode: "moving", windowDuration: 10000 }); // 10 second window
@@ -1461,7 +1461,7 @@ const smoothed = await pipeline.process(samples, timestamps, { channels: 1 });
 ### Streaming Data with Crash Recovery
 
 ```typescript
-import { createDspPipeline } from "dsp-ts-redis";
+import { createDspPipeline } from "dspx";
 import { createClient } from "redis";
 
 const redis = await createClient({ url: "redis://localhost:6379" }).connect();
@@ -1500,7 +1500,7 @@ for await (const chunk of sensorStream) {
 ### Multi-Channel EMG Processing
 
 ```typescript
-import { createDspPipeline } from "dsp-ts-redis";
+import { createDspPipeline } from "dspx";
 
 // Process 4-channel EMG with rectification + RMS envelope detection
 const pipeline = createDspPipeline();
@@ -1575,7 +1575,7 @@ await worker2.process(chunk2, { sampleRate: 2000, channels: 1 });
 
 ```bash
 git clone https://github.com/A-KGeorge/dsp_ts_redis.git
-cd dsp-ts-redis
+cd dspx
 npm install
 npm run build          # Compile C++ bindings with cmake-js
 ```
@@ -1702,7 +1702,7 @@ Contributions are welcome! This project is in active development.
 
 ```bash
 git clone https://github.com/A-KGeorge/dsp_ts_redis.git
-cd dsp-ts-redis
+cd dspx
 npm install
 npm run build      # Compile C++ with cmake-js
 npm run test           # Run tests

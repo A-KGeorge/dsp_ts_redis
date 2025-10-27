@@ -124,7 +124,7 @@ This allows RFFT/RDFT to return only **N/2+1 bins** instead of N.
 ### Basic Usage
 
 ```typescript
-import { FftProcessor } from "dsp-ts-redis";
+import { FftProcessor } from "dspx";
 
 // Create FFT processor
 const fft = new FftProcessor(1024);
@@ -156,7 +156,7 @@ const timeDomain = fft.ifft(spectrum);
 ### Streaming/Moving FFT
 
 ```typescript
-import { MovingFftProcessor } from "dsp-ts-redis";
+import { MovingFftProcessor } from "dspx";
 
 const movingFft = new MovingFftProcessor({
   fftSize: 2048,
@@ -174,7 +174,7 @@ movingFft.addSamples(samples, (spectrum, size) => {
 ### Utility Functions
 
 ```typescript
-import { FftUtils } from "dsp-ts-redis";
+import { FftUtils } from "dspx";
 
 // Find peak frequency
 const peakFreq = FftUtils.findPeakFrequency(magnitudes, sampleRate, fftSize);

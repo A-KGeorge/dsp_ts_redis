@@ -3,7 +3,7 @@
 ## Quick Start
 
 ```typescript
-import { createFilter, FirFilter, IirFilter } from "dsp-ts-redis";
+import { createFilter, FirFilter, IirFilter } from "dspx";
 
 // Method 1: Unified API
 const filter = createFilter({
