@@ -15,17 +15,10 @@
     "build:ts": "tsc",
     "build:native": "node-gyp rebuild && node -e \"const fs = require('fs'); const path = require('path'); fs.mkdirSync('src/build', { recursive: true }); fs.mkdirSync('dist/build', { recursive: true }); fs.cpSync('build/Release/dspx.node', 'src/build/dspx.node', { force: true }); fs.cpSync('build/Release/dspx.node', 'dist/build/dspx.node', { force: true }); console.log('✅ Copied native module to src/build and dist/build');\"",
     "build": "npm run build:native && npm run build:ts",
-    "prebuildify": "prebuildify --napi --strip --target 18.0.0 --target 20.0.0 --target 22.0.0"
-  },
-  "release": {
-    "branches": [
-      {
-        "name": "main",
-        "channel": "alpha",
-        "prerelease": "alpha"
-      }
-    ],
-    "repositoryUrl": "https://github.com/A-KGeorge/dspx.git"
+    "prebuildify": "prebuildify --napi --strip --target 18.0.0 --target 20.0.0 --target 22.0.0",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "publish-packages": "changeset publish"
   },
   "binary": {
     "napi_versions": [
