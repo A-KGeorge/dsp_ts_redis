@@ -237,12 +237,11 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          # This command versions, updates changelogs, and commits
-          version: npm run version
-          # This command publishes to npm and creates GitHub releases
-          publish: npm run publish-packages
+          # This one-step process versions, commits to main, and publishes
+          publish: |
+            npm run version
+            npm run publish-packages
           commit: "ci(release): version packages"
-          title: "ci(release): version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
