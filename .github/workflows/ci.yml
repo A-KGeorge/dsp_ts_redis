@@ -213,27 +213,19 @@ jobs:
     needs: [test-ubuntu, test-other, prebuild]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-      id-token: write
-
+      contents: write # To create release tags and GitHub releases
+      pull-requests: write # To create the versioning PR (if you use it)
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          persist-credentials: true
-
-      - name: Force Git to use HTTPS
-        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
+          fetch-depth: 0 # Required by changesets
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22.x
           cache: "npm"
-          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: npm ci
@@ -241,25 +233,19 @@ jobs:
       - name: Build package
         run: npm run build
 
-      - name: Configure npm auth
-        run: |
-          echo "registry=https://registry.npmjs.org/" > .npmrc
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
-          echo "always-auth=true" >> .npmrc
+      - name: Publish to npm
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          # This command versions, updates changelogs, and commits
+          version: npm run version
+          # This command publishes to npm and creates GitHub releases
+          publish: npm run publish-packages
+          commit: "ci(release): version packages"
+          title: "ci(release): version packages"
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Verify npm authentication
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm whoami
-
-      - name: Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          DEBUG: "semantic-release:*"
-        run: npx semantic-release
 
   # 🧹 Lint and Type Check
   lint:

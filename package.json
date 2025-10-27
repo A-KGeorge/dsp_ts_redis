@@ -12,7 +12,6 @@
   ],
   "scripts": {
     "test": "node scripts/test.js",
-    "semantic-release": "semantic-release",
     "build:ts": "tsc",
     "build:native": "node-gyp rebuild && node -e \"const fs = require('fs'); const path = require('path'); fs.mkdirSync('src/build', { recursive: true }); fs.mkdirSync('dist/build', { recursive: true }); fs.cpSync('build/Release/dspx.node', 'src/build/dspx.node', { force: true }); fs.cpSync('build/Release/dspx.node', 'dist/build/dspx.node', { force: true }); console.log('✅ Copied native module to src/build and dist/build');\"",
     "build": "npm run build:native && npm run build:ts",
@@ -51,18 +50,14 @@
     "node-gyp-build": "^4.8.0"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.5.1",
+    "@changesets/cli": "^2.29.7",
     "@jest/globals": "^30.2.0",
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/commit-analyzer": "^13.0.1",
-    "@semantic-release/github": "^12.0.0",
-    "@semantic-release/npm": "^13.1.1",
-    "@semantic-release/release-notes-generator": "^14.1.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.9.1",
     "jest": "^30.2.0",
     "prebuildify": "^6.0.1",
     "redis": "^5.9.0",
-    "semantic-release": "^25.0.1",
     "ts-jest": "^29.4.5",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
