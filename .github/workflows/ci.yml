@@ -224,6 +224,7 @@ jobs:
         with:
           fetch-depth: 0 # full git history required by semantic-release
           ref: main # ensure we’re on an actual branch, not detached
+          persist-credentials: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
