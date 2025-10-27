@@ -1,23 +1,25 @@
 {
   "name": "dspx",
-  "version": "0.1.2-alpha.0",
+  "version": "0.1.1-alpha.0",
   "description": "High-performance DSP library with native C++ acceleration and Redis state persistence",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "src/build/dspx.node",
+    "package.json",
+    "README.md"
   ],
   "scripts": {
     "test": "node scripts/test.js",
     "semantic-release": "semantic-release",
     "build:ts": "tsc",
-    "build": "npm run build:ts && node-gyp rebuild && node -e \"const fs = require('fs'); fs.cpSync('build/Release/dspx.node', 'src/build/dspx.node', {force: true}); console.log('Copied build/Release/dspx.node to src/build/dspx.node');\"",
+    "build:native": "node-gyp rebuild && node -e \"const fs = require('fs'); const path = require('path'); fs.mkdirSync('src/build', { recursive: true }); fs.mkdirSync('dist/build', { recursive: true }); fs.cpSync('build/Release/dspx.node', 'src/build/dspx.node', { force: true }); fs.cpSync('build/Release/dspx.node', 'dist/build/dspx.node', { force: true }); console.log('✅ Copied native module to src/build and dist/build');\"",
+    "build": "npm run build:native && npm run build:ts",
     "prebuildify": "prebuildify --napi --strip --target 18.0.0 --target 20.0.0 --target 22.0.0"
   },
   "binary": {
-    "napi_versions": [
-      8
-    ]
+    "napi_versions": [8]
   },
   "keywords": [
     "dsp",
