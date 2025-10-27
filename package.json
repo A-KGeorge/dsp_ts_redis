@@ -4,9 +4,12 @@
   "description": "High-performance DSP library with native C++ acceleration and Redis state persistence",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": [
+"files": [
     "dist",
     "src/build/dspx.node",
+    "prebuilds",
+    "src/native",
+    "binding.gyp",
     "package.json",
     "README.md"
   ],
