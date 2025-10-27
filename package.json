@@ -1,11 +1,17 @@
 {
   "name": "dspx",
-  "version": "0.1.1-alpha.0",
+  "version": "0.1.2-alpha.0",
   "description": "High-performance DSP library with native C++ acceleration and Redis state persistence",
-  "main": "index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "test": "node scripts/test.js",
-    "build": "node-gyp rebuild && node -e \"const fs = require('fs'); fs.cpSync('build/Release/dspx.node', 'src/build/dspx.node', {force: true}); console.log('Copied build/Release/dspx.node to src/build/dspx.node');\"",
+    "semantic-release": "semantic-release",
+    "build:ts": "tsc",
+    "build": "npm run build:ts && node-gyp rebuild && node -e \"const fs = require('fs'); fs.cpSync('build/Release/dspx.node', 'src/build/dspx.node', {force: true}); console.log('Copied build/Release/dspx.node to src/build/dspx.node');\"",
     "prebuildify": "prebuildify --napi --strip --target 18.0.0 --target 20.0.0 --target 22.0.0"
   },
   "binary": {
@@ -36,7 +42,9 @@
     "jest": "^30.2.0",
     "prebuildify": "^6.0.1",
     "redis": "^5.9.0",
+    "semantic-release": "^25.0.1",
     "ts-jest": "^29.4.5",
-    "tsx": "^4.20.6"
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }

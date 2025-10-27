@@ -1,0 +1,455 @@
+/**
+ * FFT/DFT TypeScript Bindings
+ *
+ * Provides all 8 Fourier transforms with full type safety:
+ * - FFT/IFFT: Fast Fourier Transform (complex, O(N log N))
+ * - DFT/IDFT: Discrete Fourier Transform (complex, O(N²))
+ * - RFFT/IRFFT: Real-input FFT (outputs N/2+1 bins)
+ * - RDFT/IRDFT: Real-input DFT (outputs N/2+1 bins)
+ *
+ * Plus moving/batched FFT for streaming applications
+ */
+/**
+ * Complex number representation
+ */
+export interface ComplexArray {
+    /** Real part */
+    real: Float32Array;
+    /** Imaginary part */
+    imag: Float32Array;
+}
+/**
+ * Window function types for spectral analysis
+ */
+export type WindowType = "none" | "hann" | "hamming" | "blackman" | "bartlett";
+/**
+ * FFT processing mode
+ */
+export type FftMode = "moving" | "batched";
+/**
+ * FFT Processor - Core transform engine
+ *
+ * **IMPORTANT: Radix-2 (Power-of-2) Requirement**
+ *
+ * The FFT/IFFT/RFFT/IRFFT transforms use the **Cooley-Tukey radix-2 algorithm**,
+ * which requires the input size to be a power of 2 (e.g., 64, 128, 256, 512, 1024, 2048, 4096, ...).
+ *
+ * If your data length is not a power of 2:
+ * 1. **Use DFT/IDFT/RDFT/IRDFT** - These work with any size but are slower (O(N²) vs O(N log N))
+ * 2. **Zero-pad your signal** - Use `FftUtils.padToPowerOfTwo()` to automatically pad to next power of 2
+ * 3. **Truncate or resample** - Adjust your signal to match a power-of-2 size
+ *
+ * @example
+ * ```ts
+ * // Example 1: Direct use with power-of-2 size
+ * const fft = new FftProcessor(512);
+ * const signal = new Float32Array(512);
+ * const spectrum = fft.rfft(signal); // Fast O(N log N)
+ *
+ * // Example 2: Auto-padding for non-power-of-2 signals
+ * const rawSignal = new Float32Array(1000); // Not power of 2!
+ * const padded = FftUtils.padToPowerOfTwo(rawSignal); // Pads to 1024
+ * const fft2 = new FftProcessor(padded.length);
+ * const spectrum2 = fft2.rfft(padded);
+ *
+ * // Example 3: Use DFT for arbitrary sizes
+ * const fft3 = new FftProcessor(1000); // Any size
+ * const complexIn = { real: new Float32Array(1000), imag: new Float32Array(1000) };
+ * const spectrum3 = fft3.rdft(rawSignal); // Slower O(N²) but no padding needed
+ *
+ * // Get magnitude spectrum
+ * const magnitudes = fft.getMagnitude(spectrum);
+ *
+ * // Inverse transform
+ * const reconstructed = fft.irfft(spectrum);
+ * ```
+ */
+export declare class FftProcessor {
+    private native;
+    /**
+     * Create FFT processor
+     *
+     * @param size FFT size
+     * - For FFT/IFFT/RFFT/IRFFT: **MUST be power of 2** (64, 128, 256, 512, 1024, 2048, 4096, ...)
+     * - For DFT/IDFT/RDFT/IRDFT: Can be any positive integer
+     *
+     * @throws {Error} If size is not positive
+     * @throws {Error} If using FFT/RFFT methods with non-power-of-2 size
+     */
+    constructor(size: number);
+    /**
+     * Forward FFT (complex -> complex)
+     *
+     * Computes: X[k] = Σ x[n] * e^(-j2πkn/N)
+     *
+     * Time complexity: O(N log N)
+     * Requires: size must be power of 2
+     *
+     * @param input Complex input signal { real, imag }
+     * @returns Complex frequency spectrum
+     */
+    fft(input: ComplexArray): ComplexArray;
+    /**
+     * Inverse FFT (complex -> complex)
+     *
+     * Computes: x[n] = (1/N) * Σ X[k] * e^(j2πkn/N)
+     *
+     * @param spectrum Complex frequency spectrum
+     * @returns Complex time-domain signal
+     */
+    ifft(spectrum: ComplexArray): ComplexArray;
+    /**
+     * Forward DFT (complex -> complex)
+     *
+     * Direct computation, slower but works for any size
+     * Time complexity: O(N²)
+     *
+     * @param input Complex input signal
+     * @returns Complex frequency spectrum
+     */
+    dft(input: ComplexArray): ComplexArray;
+    /**
+     * Inverse DFT (complex -> complex)
+     *
+     * @param spectrum Complex frequency spectrum
+     * @returns Complex time-domain signal
+     */
+    idft(spectrum: ComplexArray): ComplexArray;
+    /**
+     * Forward RFFT (real -> complex half-spectrum)
+     *
+     * Exploits Hermitian symmetry for real inputs: X[k] = X*[N-k]
+     * Returns only positive frequencies (N/2+1 bins)
+     *
+     * Time complexity: O(N log N)
+     * Output size: N/2 + 1 (includes DC and Nyquist)
+     *
+     * @param input Real input signal (size N)
+     * @returns Complex half-spectrum (size N/2+1)
+     *
+     * @example
+     * ```ts
+     * const fft = new FftProcessor(1024);
+     * const signal = new Float32Array(1024);
+     * const spectrum = fft.rfft(signal);
+     * // spectrum has 513 bins (DC + 512 positive frequencies)
+     * ```
+     */
+    rfft(input: Float32Array): ComplexArray;
+    /**
+     * Inverse RFFT (complex half-spectrum -> real)
+     *
+     * Reconstructs real signal from half spectrum using Hermitian symmetry
+     *
+     * @param spectrum Complex half-spectrum (size N/2+1)
+     * @returns Real time-domain signal (size N)
+     */
+    irfft(spectrum: ComplexArray): Float32Array;
+    /**
+     * Forward RDFT (real -> complex half-spectrum)
+     *
+     * Direct computation version of RFFT
+     * Time complexity: O(N²)
+     *
+     * @param input Real input signal
+     * @returns Complex half-spectrum
+     */
+    rdft(input: Float32Array): ComplexArray;
+    /**
+     * Inverse RDFT (complex half-spectrum -> real)
+     *
+     * Direct computation version of IRFFT
+     *
+     * @param spectrum Complex half-spectrum
+     * @returns Real time-domain signal
+     */
+    irdft(spectrum: ComplexArray): Float32Array;
+    /**
+     * Get FFT size
+     */
+    getSize(): number;
+    /**
+     * Get half-spectrum size (for real transforms)
+     * Returns N/2 + 1
+     */
+    getHalfSize(): number;
+    /**
+     * Check if FFT size is power of 2
+     */
+    isPowerOfTwo(): boolean;
+    /**
+     * Get magnitude spectrum from complex spectrum
+     *
+     * Computes: |X[k]| = sqrt(Re²(X[k]) + Im²(X[k]))
+     *
+     * @param spectrum Complex spectrum
+     * @returns Magnitude array
+     */
+    getMagnitude(spectrum: ComplexArray): Float32Array;
+    /**
+     * Get phase spectrum from complex spectrum
+     *
+     * Computes: ∠X[k] = atan2(Im(X[k]), Re(X[k]))
+     *
+     * @param spectrum Complex spectrum
+     * @returns Phase array (radians, -π to π)
+     */
+    getPhase(spectrum: ComplexArray): Float32Array;
+    /**
+     * Get power spectrum (magnitude squared)
+     *
+     * Computes: P[k] = |X[k]|²
+     *
+     * @param spectrum Complex spectrum
+     * @returns Power array
+     */
+    getPower(spectrum: ComplexArray): Float32Array;
+    /**
+     * Compute frequency bins for spectrum
+     *
+     * @param sampleRate Sample rate in Hz
+     * @returns Frequency array in Hz
+     *
+     * @example
+     * ```ts
+     * const fft = new FftProcessor(1024);
+     * const freqs = fft.getFrequencyBins(44100); // 44.1 kHz sample rate
+     * // freqs[0] = 0 Hz (DC)
+     * // freqs[1] = 43.07 Hz
+     * // freqs[512] = 22050 Hz (Nyquist)
+     * ```
+     */
+    getFrequencyBins(sampleRate: number): Float32Array;
+}
+/**
+ * Moving FFT Processor - Streaming/batched transforms
+ *
+ * Provides sliding-window and frame-based FFT processing:
+ * - Moving mode: Updates spectrum on every sample
+ * - Batched mode: Processes complete frames with hop size
+ * - **Automatic windowing** to reduce spectral leakage
+ * - Overlap-add support
+ *
+ * **Windowing for Spectral Leakage Reduction:**
+ *
+ * When performing FFT on finite-length signals, discontinuities at the boundaries
+ * cause **spectral leakage** - energy from one frequency bin "leaking" into others.
+ * Window functions taper the signal at the edges to reduce this effect.
+ *
+ * Available window types:
+ * - `none`: Rectangular (no windowing) - fastest but most leakage
+ * - `hann`: Hann window - good general-purpose choice (default for audio)
+ * - `hamming`: Hamming window - slightly better frequency resolution than Hann
+ * - `blackman`: Blackman window - best sidelobe rejection, wider main lobe
+ * - `bartlett`: Triangular window - simple linear taper
+ *
+ * **Choosing a window:**
+ * - Audio analysis: Use `hann` (most common)
+ * - Narrowband signals: Use `hamming`
+ * - Wideband signals with interfering tones: Use `blackman`
+ * - Quick testing: Use `none` (but expect leakage)
+ *
+ * Uses native C++ implementation for high performance.
+ *
+ * @example
+ * ```ts
+ * // Batched processing with 50% overlap and Hann windowing
+ * const movingFft = new MovingFftProcessor({
+ *   fftSize: 2048,
+ *   hopSize: 1024,
+ *   mode: "batched",
+ *   windowType: "hann" // Reduces spectral leakage!
+ * });
+ *
+ * // Stream audio samples
+ * const samples = new Float32Array(4096);
+ * movingFft.addSamples(samples, (spectrum, size) => {
+ *   console.log(`Spectrum ready: ${size} bins`);
+ * });
+ *
+ * // Compare windowing effects
+ * const noWindow = new MovingFftProcessor({ fftSize: 1024, windowType: "none" });
+ * const hannWindow = new MovingFftProcessor({ fftSize: 1024, windowType: "hann" });
+ * // hannWindow will show much cleaner spectral peaks!
+ * ```
+ */
+export declare class MovingFftProcessor {
+    private native;
+    /**
+     * Create Moving FFT processor
+     *
+     * @param options Configuration object
+     * @param options.fftSize FFT size (must be power of 2 for FFT, any size for DFT)
+     * @param options.hopSize Hop size in samples (default: fftSize, i.e., no overlap)
+     * @param options.mode Processing mode (default: "batched")
+     * @param options.windowType Window function (default: "hann" for spectral leakage reduction)
+     * @param options.realInput Use real-input transforms (default: true)
+     *
+     * @throws {Error} If fftSize is invalid
+     * @throws {Error} If hopSize > fftSize
+     *
+     * @example
+     * ```ts
+     * // Audio spectral analysis with 75% overlap
+     * const audioFFT = new MovingFftProcessor({
+     *   fftSize: 2048,
+     *   hopSize: 512,        // 75% overlap
+     *   windowType: "hann"   // Reduce spectral leakage
+     * });
+     *
+     * // Vibration analysis with Blackman window
+     * const vibrationFFT = new MovingFftProcessor({
+     *   fftSize: 4096,
+     *   hopSize: 4096,        // No overlap
+     *   windowType: "blackman" // Best sidelobe rejection
+     * });
+     * ```
+     */
+    constructor(options: {
+        fftSize: number;
+        hopSize?: number;
+        mode?: FftMode;
+        windowType?: WindowType;
+        realInput?: boolean;
+    });
+    /**
+     * Add single sample and optionally compute FFT
+     *
+     * @param sample Input sample
+     * @returns Spectrum if computed, null otherwise
+     */
+    addSample(sample: number): ComplexArray | null;
+    /**
+     * Add batch of samples
+     *
+     * @param samples Input samples
+     * @param callback Called for each computed spectrum
+     * @returns Number of spectra computed
+     */
+    addSamples(samples: Float32Array, callback?: (spectrum: ComplexArray, size: number) => void): number;
+    /**
+     * Force compute spectrum from current buffer
+     */
+    computeSpectrum(): ComplexArray;
+    /**
+     * Reset processor state
+     */
+    reset(): void;
+    /**
+     * Get FFT size
+     */
+    getFftSize(): number;
+    /**
+     * Get spectrum size (N/2+1 for real, N for complex)
+     */
+    getSpectrumSize(): number;
+    /**
+     * Get hop size
+     */
+    getHopSize(): number;
+    /**
+     * Get buffer fill level
+     */
+    getFillLevel(): number;
+    /**
+     * Check if ready to compute FFT
+     */
+    isReady(): boolean;
+    /**
+     * Set window type
+     */
+    setWindowType(type: WindowType): void;
+    /**
+     * Get magnitude spectrum
+     */
+    getMagnitudeSpectrum(): Float32Array;
+    /**
+     * Get power spectrum
+     */
+    getPowerSpectrum(): Float32Array;
+    /**
+     * Get phase spectrum
+     */
+    getPhaseSpectrum(): Float32Array;
+    /**
+     * Get frequency bins
+     */
+    getFrequencyBins(sampleRate: number): Float32Array;
+}
+/**
+ * Helper functions for common FFT operations
+ */
+export declare namespace FftUtils {
+    /**
+     * Pad signal to next power of 2 with zeros
+     *
+     * This is the recommended approach for using FFT with arbitrary-length signals.
+     * Zero-padding allows you to use the fast FFT algorithm (O(N log N)) instead of
+     * the slower DFT (O(N²)).
+     *
+     * **Note on spectral resolution:**
+     * - Zero-padding does NOT increase spectral resolution
+     * - It only increases the number of frequency bins (interpolation)
+     * - True resolution is still limited by original signal length
+     *
+     * @param signal Input signal (any length)
+     * @returns Zero-padded signal (power-of-2 length)
+     *
+     * @example
+     * ```ts
+     * const signal = new Float32Array(1000); // Not power of 2
+     * const padded = FftUtils.padToPowerOfTwo(signal); // 1024 samples
+     * const fft = new FftProcessor(padded.length);
+     * const spectrum = fft.rfft(padded);
+     * ```
+     */
+    function padToPowerOfTwo(signal: Float32Array): Float32Array;
+    /**
+     * Check if number is a power of 2
+     *
+     * @param n Number to check
+     * @returns True if n is a power of 2
+     *
+     * @example
+     * ```ts
+     * FftUtils.isPowerOfTwo(512);  // true
+     * FftUtils.isPowerOfTwo(1000); // false
+     * FftUtils.isPowerOfTwo(1024); // true
+     * ```
+     */
+    function isPowerOfTwo(n: number): boolean;
+    /**
+     * Find peak frequency in spectrum
+     *
+     * @param magnitudes Magnitude spectrum
+     * @param sampleRate Sample rate in Hz
+     * @param fftSize FFT size
+     * @returns Peak frequency in Hz
+     */
+    function findPeakFrequency(magnitudes: Float32Array, sampleRate: number, fftSize: number): number;
+    /**
+     * Convert magnitude spectrum to decibels
+     *
+     * @param magnitudes Magnitude spectrum
+     * @param refLevel Reference level (default: 1.0)
+     * @returns Spectrum in dB
+     */
+    function toDecibels(magnitudes: Float32Array, refLevel?: number): Float32Array;
+    /**
+     * Apply A-weighting to frequency spectrum (perceptual audio)
+     *
+     * @param magnitudes Magnitude spectrum
+     * @param frequencies Frequency bins in Hz
+     * @returns A-weighted magnitudes
+     */
+    function applyAWeighting(magnitudes: Float32Array, frequencies: Float32Array): Float32Array;
+    /**
+     * Compute next power of 2
+     */
+    function nextPowerOfTwo(n: number): number;
+    /**
+     * Zero-pad signal to target length
+     */
+    function zeroPad(signal: Float32Array, targetLength: number): Float32Array;
+}
+//# sourceMappingURL=fft.d.ts.map
