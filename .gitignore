@@ -1,6 +1,7 @@
 node_modules/
 build/
 !src/build/
+dist/
 
 # Commit prebuilds for distribution
 # prebuilds/ - DO NOT IGNORE THIS
