@@ -1,6 +1,6 @@
 {
   "name": "dsp-ts-redis",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.1-alpha.0",
   "description": "High-performance DSP library with native C++ acceleration and Redis state persistence",
   "main": "index.js",
   "scripts": {
