@@ -1,10 +1,10 @@
 // Export the main API
-export { createDspPipeline, DspProcessor } from "./bindings";
+export { createDspPipeline, DspProcessor } from "./bindings.js";
 export {
   TopicRouter,
   TopicRouterBuilder,
   createTopicRouter,
-} from "./TopicRouter";
+} from "./TopicRouter.js";
 export {
   createPagerDutyHandler,
   createPrometheusHandler,
@@ -27,13 +27,13 @@ export {
   type LoggerMetrics,
   type SamplingConfig,
   type LoggerOptions,
-} from "./backends";
+} from "./backends.js";
 export {
   DriftDetector,
   detectGaps,
   validateMonotonicity,
   estimateSampleRate,
-} from "./DriftDetector";
+} from "./DriftDetector.js";
 export {
   FftProcessor,
   MovingFftProcessor,
@@ -41,7 +41,7 @@ export {
   type ComplexArray,
   type WindowType,
   type FftMode,
-} from "./fft";
+} from "./fft.js";
 export {
   FirFilter,
   IirFilter,
@@ -53,7 +53,7 @@ export {
   type ButterworthFilterOptions,
   type ChebyshevFilterOptions,
   type BiquadFilterOptions,
-} from "./filters";
+} from "./filters.js";
 export {
   calculateHjorthParameters,
   calculateSpectralCentroid,
@@ -66,8 +66,8 @@ export {
   HjorthTracker,
   SpectralFeaturesTracker,
   EntropyTracker,
-} from "./advanced-dsp";
-export { egg } from "./easter-egg";
+} from "./advanced-dsp.js";
+export { egg } from "./easter-egg.js";
 export type {
   DriftStatistics,
   DriftDetectorOptions,
@@ -75,7 +75,7 @@ export type {
   GapDetection,
   MonotonicityViolation,
   SampleRateEstimate,
-} from "./DriftDetector";
+} from "./DriftDetector.js";
 export type {
   ProcessOptions,
   MovingAverageParams,
@@ -109,12 +109,12 @@ export type {
   DecimateParams,
   InterpolateParams,
   ResampleParams,
-} from "./types";
+} from "./types.js";
 export type {
   RouteHandler,
   Route,
   RouteOptions,
   RouteMetrics,
   PatternMatcher,
-} from "./TopicRouter";
-export type { BackendConfig } from "./backends";
+} from "./TopicRouter.js";
+export type { BackendConfig } from "./backends.js";
