@@ -198,14 +198,24 @@ jobs:
       - name: Prebuild binaries
         run: npm run prebuildify
 
-      - name: Configure npm auth
-        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+      - name: Configure npm authentication
+        run: |
+          echo "registry=https://registry.npmjs.org/" > .npmrc
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> .npmrc
+          echo "alwaysAuth=true" >> .npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Verify npm authentication
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm whoami
 
       - name: Release
-        run: npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npx semantic-release
 
   lint:
     name: Lint and Type Check
