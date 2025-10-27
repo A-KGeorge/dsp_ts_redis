@@ -222,8 +222,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # full git history required by semantic-release
+          fetch-depth: 0
           persist-credentials: true
+
+      - name: Force Git to use HTTPS
+        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

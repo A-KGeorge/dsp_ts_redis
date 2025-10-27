@@ -25,7 +25,8 @@
         "channel": "alpha",
         "prerelease": "alpha"
       }
-    ]
+    ],
+    "repositoryUrl": "https://github.com/A-KGeorge/dspx.git"
   },
   "binary": {
     "napi_versions": [
