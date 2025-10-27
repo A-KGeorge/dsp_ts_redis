@@ -172,6 +172,7 @@ jobs:
       contents: write # Allows pushing tags and commits
       issues: write # Allows closing issues via releases
       pull-requests: write # Allows updating PRs if needed
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -196,6 +197,9 @@ jobs:
 
       - name: Prebuild binaries
         run: npm run prebuildify
+
+      - name: Configure npm auth
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
 
       - name: Release
         run: npx semantic-release
