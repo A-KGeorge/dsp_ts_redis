@@ -19,18 +19,47 @@
 
 // Platform detection
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
-#define SIMD_X86
+// --- x86/x64 Platform ---
+#define SIMD_X86 // General x86/x64 flag (can be used for non-instruction specific things if needed)
+
+// Check for specific instruction sets in descending order of capability
 #if defined(__AVX2__)
-#define SIMD_AVX2
-#include <immintrin.h>
+#define SIMD_AVX2      // AVX2 (Haswell+)
+#define SIMD_AVX       // AVX2 implies AVX
+#define SIMD_SSE3      // AVX implies SSE3
+#include <immintrin.h> // Includes AVX2, AVX, SSE3 etc.
+#elif defined(__AVX__)
+#define SIMD_AVX       // AVX (Sandy Bridge+)
+#define SIMD_SSE3      // AVX implies SSE3
+#include <immintrin.h> // Includes AVX, SSE3 etc.
+#elif defined(__SSE3__)
+#define SIMD_SSE3      // SSE3 (Prescott+)
+#include <pmmintrin.h> // For SSE3 specific
+#include <emmintrin.h> // SSE2 might still be needed
+#include <xmmintrin.h> // SSE might still be needed
 #elif defined(__SSE2__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
+// If only SSE2 is available (older CPUs)
 #define SIMD_SSE2
 #include <emmintrin.h>
+#include <xmmintrin.h> // SSE
+#elif defined(__SSE__) || (defined(_M_IX86_FP) && _M_IX86_FP >= 1)
+// If only SSE is available (very old)
+#define SIMD_SSE
+#include <xmmintrin.h> // SSE
+#else
+// No specific SIMD detected for x86 beyond baseline
 #endif
+
 #elif defined(__ARM_NEON) || defined(__aarch64__)
+// --- ARM Platform ---
 #define SIMD_NEON
 #include <arm_neon.h>
-#endif
+
+#else
+// --- No SIMD Detected (Scalar Fallback) ---
+// No SIMD macros defined
+
+#endif // Platform checks
 
 namespace dsp::simd
 {
@@ -867,4 +896,106 @@ namespace dsp::simd
 #endif
     }
 
+#if defined(SIMD_SSE3)
+    // --- sse_complex_mul (Unchanged) ---
+    inline __m128 sse_complex_mul(const __m128 &a, const __m128 &b)
+    {
+        __m128 a_real = _mm_moveldup_ps(a);             // [ar1, ar1, ar2, ar2]
+        __m128 a_imag = _mm_movehdup_ps(a);             // [ai1, ai1, ai2, ai2]
+        __m128 b_shuffled = _mm_shuffle_ps(b, b, 0xB1); // [bi1, br1, bi2, br2]
+        __m128 mult1 = _mm_mul_ps(a_real, b);
+        __m128 mult2 = _mm_mul_ps(a_imag, b_shuffled);
+        return _mm_addsub_ps(mult1, mult2); // [r1, i1, r2, i2]
+    }
+
+    /**
+     * @brief SIMD SSE butterfly operation (Processes 2 complex floats)
+     * Handles inverse conjugation internally.
+     */
+    inline void sse_butterfly(
+        __m128 &a,
+        __m128 &b,
+        const __m128 &tw_orig, // Original (forward) twiddle
+        bool inverse)
+    {
+        // Conjugate twiddle factor if doing inverse FFT
+        const __m128 sse_conj_mask = _mm_setr_ps(1.0f, -1.0f, 1.0f, -1.0f);
+        __m128 tw = inverse ? _mm_mul_ps(tw_orig, sse_conj_mask) : tw_orig;
+
+        // Perform butterfly
+        __m128 temp = sse_complex_mul(b, tw);
+        b = _mm_sub_ps(a, temp);
+        a = _mm_add_ps(a, temp);
+    }
+#endif // SIMD_SSE3
+
+    // ========== AVX2 (float) ==========
+#if defined(SIMD_AVX2)
+    // --- avx_complex_mul (Unchanged) ---
+    inline __m256 avx_complex_mul(const __m256 &a, const __m256 &b)
+    {
+        __m256 a_real = _mm256_moveldup_ps(a);
+        __m256 a_imag = _mm256_movehdup_ps(a);
+        __m256 b_shuffled = _mm256_shuffle_ps(b, b, 0xB1);
+        __m256 mult1 = _mm256_mul_ps(a_real, b);
+        __m256 mult2 = _mm256_mul_ps(a_imag, b_shuffled);
+        return _mm256_addsub_ps(mult1, mult2);
+    }
+
+    /**
+     * @brief SIMD AVX butterfly operation (Processes 4 complex floats)
+     * Handles inverse conjugation internally.
+     */
+    inline void avx_butterfly(
+        __m256 &a,
+        __m256 &b,
+        const __m256 &tw_orig, // Original (forward) twiddle
+        bool inverse)
+    {
+        // Conjugate twiddle factor if doing inverse FFT
+        const __m256 conj_mask = _mm256_setr_ps(1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f, 1.0f, -1.0f);
+        __m256 tw = inverse ? _mm256_mul_ps(tw_orig, conj_mask) : tw_orig;
+
+        // Perform butterfly
+        __m256 temp = avx_complex_mul(b, tw);
+        b = _mm256_sub_ps(a, temp);
+        a = _mm256_add_ps(a, temp);
+    }
+#endif // SIMD_AVX2
+
+    // ========== AVX (double) ==========
+#if defined(SIMD_AVX)
+    // --- avx_complex_mul_double (Unchanged) ---
+    inline __m256d avx_complex_mul_double(const __m256d &a, const __m256d &b)
+    {
+        __m256d a_real = _mm256_permute_pd(a, 0x0);
+        __m256d a_imag = _mm256_permute_pd(a, 0xF);
+        __m256d b_shuffled = _mm256_permute_pd(b, 0x5);
+        __m256d mult1 = _mm256_mul_pd(a_real, b);
+        __m256d mult2 = _mm256_mul_pd(a_imag, b_shuffled);
+        return _mm256_addsub_pd(mult1, mult2);
+    }
+
+    /**
+     * @brief SIMD AVX butterfly operation (Processes 2 complex doubles)
+     * Handles inverse conjugation internally.
+     */
+    inline void avx_butterfly_double(
+        __m256d &a,
+        __m256d &b,
+        const __m256d &tw_orig, // Original (forward) twiddle
+        bool inverse)
+    {
+        // Conjugate twiddle factor if doing inverse FFT
+        const __m256d avx_conj_mask = _mm256_setr_pd(1.0, -1.0, 1.0, -1.0);
+        __m256d tw = inverse ? _mm256_mul_pd(tw_orig, avx_conj_mask) : tw_orig;
+
+        // Perform butterfly
+        __m256d temp = avx_complex_mul_double(b, tw);
+        b = _mm256_sub_pd(a, temp);
+        a = _mm256_add_pd(a, temp);
+    }
+#endif // SIMD_AVX
+
+    // SIMD_X86 removed since SIMD_SSE3 covers it for most of the modern devices
 } // namespace dsp::simd

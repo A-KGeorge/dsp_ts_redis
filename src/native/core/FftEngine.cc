@@ -8,6 +8,7 @@
 #include "../utils/SimdOps.h"
 #include <algorithm>
 #include <stdexcept>
+#include <type_traits>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -60,17 +61,13 @@ namespace dsp
         {
             if (!m_isPowerOfTwo)
             {
-                throw std::runtime_error("IFFT requires power-of-2 size. Use IDFT for arbitrary sizes.");
+                throw std::runtime_error("IFFT not supported for non-power-of-2 size");
             }
-
-            // Copy input to output
             std::copy(input, input + m_size, output);
+            cooleyTukeyFFT(output, true); // Call the one true function
 
-            // Perform inverse FFT
-            cooleyTukeyFFT(output, true);
-
-            // Scale by 1/N
-            T scale = T(1) / static_cast<T>(m_size);
+            // Apply scaling
+            T scale = 1.0f / static_cast<T>(m_size);
             for (size_t i = 0; i < m_size; ++i)
             {
                 output[i] *= scale;
@@ -360,31 +357,113 @@ namespace dsp
             }
         }
 
+        /**
+         * Core Cooley-Tukey FFT algorithm (in-place)
+         * SIMPLIFIED: Passes 'inverse' flag to SIMD helpers.
+         */
         template <typename T>
         void FftEngine<T>::cooleyTukeyFFT(Complex *data, bool inverse)
         {
-            // Bit-reversal permutation
+            // 1. Bit-reversal permutation (unchanged)
             bitReverse(data);
 
-            // Cooley-Tukey decimation-in-time
-            for (size_t len = 2; len <= m_size; len *= 2)
+            // 2. Cooley-Tukey decimation-in-time
+            const size_t logN = static_cast<size_t>(std::log2(static_cast<double>(m_size)));
+
+            for (size_t s = 1; s <= logN; ++s)
             {
-                size_t halfLen = len / 2;
-                size_t step = m_size / len;
+                size_t halfLen = 1 << (s - 1);
+                size_t len = 2 * halfLen;
+                const auto &twiddles = m_twiddleFactors; // Always use forward twiddles
+                size_t twiddle_step = m_size / len;
 
                 for (size_t i = 0; i < m_size; i += len)
                 {
-                    for (size_t j = 0; j < halfLen; ++j)
-                    {
-                        size_t twiddleIdx = j * step;
-                        Complex twiddle = m_twiddleFactors[twiddleIdx];
+                    size_t k = 0; // Twiddle index
+                    size_t j = 0; // Butterfly index
 
+                    // --- COMPILE-TIME DISPATCH ---
+                    if constexpr (std::is_same_v<T, float>)
+                    {
+                        // --- FLOAT PATH ---
+#if defined(SIMD_AVX2)
+                        for (; j + 3 < halfLen; j += 4)
+                        {
+                            // Load forward twiddles
+                            const float tw_data[8] = {/* ... load k, k+step, k+2s, k+3s ... */
+                                                      twiddles[k].real(), twiddles[k].imag(),
+                                                      twiddles[k + twiddle_step].real(), twiddles[k + twiddle_step].imag(),
+                                                      twiddles[k + 2 * twiddle_step].real(), twiddles[k + 2 * twiddle_step].imag(),
+                                                      twiddles[k + 3 * twiddle_step].real(), twiddles[k + 3 * twiddle_step].imag()};
+                            __m256 tw = _mm256_loadu_ps(tw_data);
+                            __m256 a = _mm256_loadu_ps(reinterpret_cast<float *>(&data[i + j]));
+                            __m256 b = _mm256_loadu_ps(reinterpret_cast<float *>(&data[i + j + halfLen]));
+
+                            // Pass 'inverse' flag to helper
+                            dsp::simd::avx_butterfly(a, b, tw, inverse);
+
+                            _mm256_storeu_ps(reinterpret_cast<float *>(&data[i + j]), a);
+                            _mm256_storeu_ps(reinterpret_cast<float *>(&data[i + j + halfLen]), b);
+                            k += (4 * twiddle_step);
+                        }
+#endif
+#if defined(SIMD_SSE3)
+                        for (; j + 1 < halfLen; j += 2)
+                        {
+                            // Load forward twiddles
+                            const float tw_data[4] = {/* ... load k, k+step ... */
+                                                      twiddles[k].real(), twiddles[k].imag(),
+                                                      twiddles[k + twiddle_step].real(), twiddles[k + twiddle_step].imag()};
+                            __m128 tw = _mm_loadu_ps(tw_data);
+                            __m128 a = _mm_loadu_ps(reinterpret_cast<float *>(&data[i + j]));
+                            __m128 b = _mm_loadu_ps(reinterpret_cast<float *>(&data[i + j + halfLen]));
+
+                            // Pass 'inverse' flag to helper
+                            dsp::simd::sse_butterfly(a, b, tw, inverse);
+
+                            _mm_storeu_ps(reinterpret_cast<float *>(&data[i + j]), a);
+                            _mm_storeu_ps(reinterpret_cast<float *>(&data[i + j + halfLen]), b);
+                            k += (2 * twiddle_step);
+                        }
+#endif
+                    }
+                    else if constexpr (std::is_same_v<T, double>)
+                    {
+                        // --- DOUBLE PATH ---
+#if defined(SIMD_AVX)
+                        for (; j + 1 < halfLen; j += 2)
+                        {
+                            // Load forward twiddles
+                            const double tw_data[4] = {/* ... load k, k+step ... */
+                                                       twiddles[k].real(), twiddles[k].imag(),
+                                                       twiddles[k + twiddle_step].real(), twiddles[k + twiddle_step].imag()};
+                            __m256d tw = _mm256_loadu_pd(tw_data);
+                            __m256d a = _mm256_loadu_pd(reinterpret_cast<const double *>(&data[i + j]));
+                            __m256d b = _mm256_loadu_pd(reinterpret_cast<const double *>(&data[i + j + halfLen]));
+
+                            // Pass 'inverse' flag to helper
+                            dsp::simd::avx_butterfly_double(a, b, tw, inverse);
+
+                            _mm256_storeu_pd(reinterpret_cast<double *>(&data[i + j]), a);
+                            _mm256_storeu_pd(reinterpret_cast<double *>(&data[i + j + halfLen]), b);
+                            k += (2 * twiddle_step);
+                        }
+#endif
+                    }
+
+                    // --- SCALAR CLEANUP (Unchanged) ---
+                    for (; j < halfLen; ++j)
+                    {
+                        const Complex &twiddle = twiddles[k]; // Use forward twiddle
                         if (inverse)
                         {
-                            twiddle = std::conj(twiddle);
+                            butterfly(data[i + j], data[i + j + halfLen], std::conj(twiddle));
                         }
-
-                        butterfly(data[i + j], data[i + j + halfLen], twiddle);
+                        else
+                        {
+                            butterfly(data[i + j], data[i + j + halfLen], twiddle);
+                        }
+                        k += twiddle_step;
                     }
                 }
             }

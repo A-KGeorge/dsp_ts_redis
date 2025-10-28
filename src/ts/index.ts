@@ -67,7 +67,7 @@ export {
   SpectralFeaturesTracker,
   EntropyTracker,
 } from "./advanced-dsp.js";
-export { egg } from "./easter-egg.js";
+export { egg, credits } from "./easter-egg.js";
 export type {
   DriftStatistics,
   DriftDetectorOptions,

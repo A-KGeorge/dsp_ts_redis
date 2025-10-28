@@ -37,8 +37,8 @@
       ],
       "cflags!": [ "-fno-exceptions" ],
       "cflags_cc!": [ "-fno-exceptions" ],
-      "cflags": [ "-O3", "-ffast-math" ],
-      "cflags_cc": [ "-std=c++17", "-O3", "-ffast-math" ],
+      "cflags": [ "-O3", "-ffast-math", "-msse3", "-mavx", "-mavx2" ],
+      "cflags_cc": [ "-std=c++17", "-O3", "-ffast-math", "-msse3", "-mavx", "-mavx2" ],      
       "msvs_settings": {
         "VCCLCompilerTool": {
           "ExceptionHandling": 1,
@@ -52,7 +52,7 @@
         "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
         "CLANG_CXX_LIBRARY": "libc++",
         "MACOSX_DEPLOYMENT_TARGET": "10.15",
-        "OTHER_CPLUSPLUSFLAGS": [ "-std=c++17", "-stdlib=libc++", "-O3", "-ffast-math" ],
+        "OTHER_CPLUSPLUSFLAGS": [ "-std=c++17", "-stdlib=libc++", "-O3", "-ffast-math", "-msse3", "-mavx", "-mavx2" ],
         "GCC_OPTIMIZATION_LEVEL": "3"
       },
       "conditions": [
