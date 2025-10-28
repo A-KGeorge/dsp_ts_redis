@@ -1,5 +1,11 @@
 # dspx
 
+## 0.2.0-alpha.5
+
+### Patch Changes
+
+- [`5213143`](https://github.com/A-KGeorge/dspx/commit/5213143cfd98739a3e756496580168e4250413b9) Thanks [@A-KGeorge](https://github.com/A-KGeorge)! - fixed imports
+
 ## 0.2.0-alpha.4
 
 ### Patch Changes
