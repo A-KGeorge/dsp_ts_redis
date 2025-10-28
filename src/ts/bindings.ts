@@ -28,40 +28,26 @@ import {
   type FilterType,
   type FilterMode,
 } from "./filters.js";
+import nodeGypBuild from "node-gyp-build";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const require = createRequire(import.meta.url);
 
-// Try multiple paths to find the native module
+// Use node-gyp-build to automatically find the correct .node file
 let DspAddon: any;
-const possiblePaths = [
-  join(__dirname, "../build/dspx.node"),
-  join(__dirname, "../../build/Release/dspx.node"),
-  join(process.cwd(), "build/Release/dspx.node"),
-  join(process.cwd(), "src/build/dspx.node"),
-];
-
-const errors: Array<{ path: string; error: string }> = [];
-
-for (const path of possiblePaths) {
-  try {
-    DspAddon = require(path);
-    break;
-  } catch (err: any) {
-    errors.push({ path, error: err.message });
-    // Try next path
-  }
-}
-
-if (!DspAddon) {
-  console.error("❌ Failed to load native module. Tried paths:");
-  errors.forEach(({ path, error }) => {
-    console.error(`  - ${path}`);
-    console.error(`    Error: ${error}`);
-  });
+try {
+  // Pass __dirname (the directory of the current JS file) to node-gyp-build
+  // It will look upwards for package.json and then find the addon
+  // Go up two levels from src/ts to the project root
+  DspAddon = nodeGypBuild(join(__dirname, "../.."));
+} catch (err: any) {
+  console.error(
+    " Failed to load native module using node-gyp-build:",
+    err.message
+  );
   throw new Error(
-    `Could not load native module. Tried ${possiblePaths.length} paths.`
+    `Could not load native module. Is the build complete and correct? Error: ${err.message}`
   );
 }
 

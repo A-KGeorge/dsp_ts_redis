@@ -13,31 +13,25 @@
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import nodeGypBuild from "node-gyp-build";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const require = createRequire(import.meta.url);
 
-// Try multiple paths to find the native module
+// Use node-gyp-build to automatically find the correct .node file
 let DspAddon: any;
-const possiblePaths = [
-  join(__dirname, "../build/dspx.node"),
-  join(__dirname, "../../build/Release/dspx.node"),
-  join(__dirname, "../../prebuilds/win32-x64/dsp-js-native.node"),
-];
-
-for (const path of possiblePaths) {
-  try {
-    DspAddon = require(path);
-    break;
-  } catch (err) {
-    // Continue to next path
-  }
-}
-
-if (!DspAddon) {
+try {
+  // Pass __dirname (the directory of the current JS file) to node-gyp-build
+  // Go up two levels from src/ts to the project root
+  DspAddon = nodeGypBuild(join(__dirname, "../.."));
+} catch (err: any) {
+  console.error(
+    " Failed to load native module using node-gyp-build:",
+    err.message
+  );
   throw new Error(
-    "Could not load native module. Tried paths:\n" + possiblePaths.join("\n")
+    `Could not load native module. Is the build complete and correct? Error: ${err.message}`
   );
 }
 

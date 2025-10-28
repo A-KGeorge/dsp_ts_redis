@@ -43,7 +43,7 @@
   "dependencies": {
     "cross-env": "^7.0.3",
     "node-addon-api": "^8.5.0",
-    "node-gyp-build": "^4.8.0"
+    "node-gyp-build": "^4.8.4"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.5.1",
