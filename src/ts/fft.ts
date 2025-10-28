@@ -13,28 +13,12 @@
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import nodeGypBuild from "node-gyp-build";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const require = createRequire(import.meta.url);
 
-// Use node-gyp-build to automatically find the correct .node file
-let DspAddon: any;
-try {
-  // Pass __dirname (the directory of the current JS file) to node-gyp-build
-  // Go up two levels from src/ts to the project root
-  DspAddon = nodeGypBuild(join(__dirname, "../.."));
-} catch (err: any) {
-  console.error(
-    " Failed to load native module using node-gyp-build:",
-    err.message
-  );
-  throw new Error(
-    `Could not load native module. Is the build complete and correct? Error: ${err.message}`
-  );
-}
-
+const DspAddon = require("./dspx.node");
 /**
  * Complex number representation
  */
