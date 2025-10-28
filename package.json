@@ -1,11 +1,11 @@
 {
   "name": "dspx",
-  "version": "0.2.0-alpha.3",
+  "version": "0.2.0-alpha.4",
   "description": "High-performance DSP library with native C++ acceleration and Redis state persistence",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist",    
+    "dist",
     "prebuilds",
     "src/native",
     "binding.gyp",
