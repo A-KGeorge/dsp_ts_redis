@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import type {
   ProcessOptions,
   RedisConfig,
@@ -26,10 +25,9 @@ import {
   type FilterType,
   type FilterMode,
 } from "./filters.js";
+import nodeGypBuild from "node-gyp-build";
 
-const require = createRequire(import.meta.url);
-
-const DspAddon = require("./dspx.node");
+const DspAddon = nodeGypBuild(process.cwd());
 
 /**
  * DSP Processor class that wraps the native C++ DspPipeline

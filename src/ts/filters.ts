@@ -11,11 +11,9 @@
  * This module provides a clean TypeScript API.
  */
 
-import { createRequire } from "node:module";
+import nodeGypBuild from "node-gyp-build";
 
-const require = createRequire(import.meta.url);
-
-const DspAddon = require("./dspx.node");
+const DspAddon = nodeGypBuild(process.cwd());
 
 // ============================================================
 // Types

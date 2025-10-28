@@ -10,11 +10,10 @@
  * Plus moving/batched FFT for streaming applications
  */
 
-import { createRequire } from "node:module";
+import nodeGypBuild from "node-gyp-build";
 
-const require = createRequire(import.meta.url);
+const DspAddon = nodeGypBuild(process.cwd());
 
-const DspAddon = require("./dspx.node");
 /**
  * Complex number representation
  */
