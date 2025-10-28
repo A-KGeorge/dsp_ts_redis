@@ -11,9 +11,39 @@
  * This module provides a clean TypeScript API.
  */
 
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import nodeGypBuild from "node-gyp-build";
 
-const DspAddon = nodeGypBuild(process.cwd());
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+let DspAddon: any; // Or DspAddon
+// Load the addon using node-gyp-build
+try {
+  // First, try the path that works when installed
+  DspAddon = nodeGypBuild(join(__dirname, ".."));
+} catch (e) {
+  try {
+    // If that fails, try the path that works locally during testing/dev
+    DspAddon = nodeGypBuild(join(__dirname, "..", ".."));
+  } catch (err: any) {
+    // If both fail, throw a more informative error
+    console.error("Failed to load native DspAddon module.");
+    console.error("Tried using both relative paths.");
+    console.error(
+      "Attempt 1 error (installed path ../):",
+      (e as Error).message
+    );
+    console.error("Attempt 2 error (local path ../../):", err.message);
+    throw new Error(
+      `Could not load native module. Is the build complete? Search paths tried: ${join(
+        __dirname,
+        ".."
+      )} and ${join(__dirname, "..", "..")}`
+    );
+  }
+}
 
 // ============================================================
 // Types
