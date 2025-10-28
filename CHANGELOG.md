@@ -1,5 +1,11 @@
 # dspx
 
+## 0.2.0-alpha.6
+
+### Patch Changes
+
+- [`f475db4`](https://github.com/A-KGeorge/dspx/commit/f475db4ef755f7780343305d8db9babd9c453718) Thanks [@A-KGeorge](https://github.com/A-KGeorge)! - import path fix 1
+
 ## 0.2.0-alpha.5
 
 ### Patch Changes
