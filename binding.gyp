@@ -37,8 +37,8 @@
       ],
       "cflags!": [ "-fno-exceptions" ],
       "cflags_cc!": [ "-fno-exceptions" ],
-      "cflags": [ "-O3", "-ffast-math", "-msse3", "-mavx", "-mavx2" ],
-      "cflags_cc": [ "-std=c++17", "-O3", "-ffast-math", "-msse3", "-mavx", "-mavx2" ],      
+      "cflags": [ "-O3", "-ffast-math" ],
+      "cflags_cc": [ "-std=c++17", "-O3", "-ffast-math" ],      
       "msvs_settings": {
         "VCCLCompilerTool": {
           "ExceptionHandling": 1,
@@ -52,13 +52,36 @@
         "GCC_ENABLE_CPP_EXCEPTIONS": "YES",
         "CLANG_CXX_LIBRARY": "libc++",
         "MACOSX_DEPLOYMENT_TARGET": "10.15",
-        "OTHER_CPLUSPLUSFLAGS": [ "-std=c++17", "-stdlib=libc++", "-O3", "-ffast-math", "-msse3", "-mavx", "-mavx2" ],
+        "OTHER_CPLUSPLUSFLAGS": [ "-std=c++17", "-stdlib=libc++", "-O3", "-ffast-math"],
         "GCC_OPTIMIZATION_LEVEL": "3"
       },
       "conditions": [
+        # Condition for Windows (unchanged, but keep it)
         ["OS=='win'", {
           "defines": [ "_HAS_EXCEPTIONS=1" ]
+        }],
+        # Condition for x64 architecture (Linux/macOS)
+        ['target_arch=="x64"', {
+          "cflags+": [ "-msse3", "-mavx", "-mavx2" ],
+          "cflags_cc+": [ "-msse3", "-mavx", "-mavx2" ],
+          'xcode_settings': {
+            'OTHER_CPLUSPLUSFLAGS+': [ '-msse3', '-mavx', '-mavx2' ]
+          }
+        }],
+        # Condition for ia32 architecture (Linux/macOS - if you support 32-bit x86)
+        ['target_arch=="ia32"', {
+           "cflags+": [ "-msse3", "-mavx", "-mavx2" ], # Or adjust based on 32-bit support
+           "cflags_cc+": [ "-msse3", "-mavx", "-mavx2" ],
+          'xcode_settings': {
+            'OTHER_CPLUSPLUSFLAGS+': [ '-msse3', '-mavx', '-mavx2' ]
+          }
         }]
+        # Add NEON flags for arm64 if desired, e.g.:
+        # ['target_arch=="arm64"', {
+        #   "cflags+": ["-mfpu=neon"], # Example flag, check compiler docs
+        #   "cflags_cc+": ["-mfpu=neon"],
+        #   'xcode_settings': { 'OTHER_CPLUSPLUSFLAGS+': ['-mfpu=neon'] }
+        # }]
       ]
     }
   ]
