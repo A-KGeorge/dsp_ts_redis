@@ -1,6 +1,4 @@
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 import type {
   ProcessOptions,
   RedisConfig,
@@ -29,8 +27,6 @@ import {
   type FilterMode,
 } from "./filters.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 const require = createRequire(import.meta.url);
 
 const DspAddon = require("./dspx.node");
