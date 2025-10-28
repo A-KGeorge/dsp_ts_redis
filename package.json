@@ -5,8 +5,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist",
-    "src/build/dspx.node",
+    "dist",    
     "prebuilds",
     "src/native",
     "binding.gyp",
